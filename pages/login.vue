@@ -1,0 +1,118 @@
+<script setup>
+import useVuelidate from '@vuelidate/core';
+// import { required, email, minLength, helpers } from '@vuelidate/validators';
+
+const user = useSupabaseUser();
+const { userLogin } = useAuthStore();
+
+const store = useStore();
+const { isLoading, isLoadingFull } = storeToRefs(store);
+onBeforeMount(() => {
+  isLoadingFull.value = false;
+});
+
+const formData = reactive({
+  email: '',
+  password: '',
+});
+
+// const rules = computed(() => {
+//   return {
+//     email: {
+//       required: helpers.withMessage('Este campo es requerido', required),
+//       email: helpers.withMessage('Formato inválido', email),
+//     },
+//     password: {
+//       required: helpers.withMessage('Este campo es requerido', required),
+//       minLength: helpers.withMessage(
+//         'La contraseña debe tener al menos 6 caracteres',
+//         minLength(6)
+//       ),
+//     },
+//   };
+// });
+// const v$ = useVuelidate(rules, formData);
+
+const submitForm = async () => {
+  // v$.value.$validate();
+  // if (v$.value.$error) {
+  //   return;
+  // }
+  isLoading.value = true;
+  await userLogin(formData);
+};
+
+watchEffect(async () => {
+  if (user.value) {
+    await navigateTo('/', { replace: true });
+  }
+});
+
+useHead({
+  title: 'Iniciar sesión | Render Cotizador',
+});
+
+definePageMeta({
+  layout: false,
+});
+</script>
+
+<template>
+  <Transition name="slide" appear>
+    <main class="min-h-screen overflow-x-hidden bg-light-medium dark:bg-dark-medium">
+      <section
+        class="container mx-auto flex flex-col flex-wrap items-center justify-center px-5 py-24 text-gray-400 lg:gap-8"
+      >
+        <form
+          @submit.prevent="submitForm"
+          class="bg-opacity-50 mt-10 flex w-full flex-col items-center rounded-[20px] border border-light-strong bg-white p-8 dark:border-dark-medium dark:bg-dark-strong md:mt-0 md:w-1/2 lg:flex-row lg:justify-around"
+        >
+          <figure class="rounded-xl p-4">
+            <!-- <img src="@/assets/images/logo-rosa-cropped.png" alt="" class="w-20 lg:w-32" /> -->
+          </figure>
+          <div class="flex w-full flex-col lg:w-auto">
+            <h2
+              class="mx-auto mb-5 w-fit border-b-2 border-primary text-lg font-medium text-dark-medium dark:border-primary/50 dark:text-light-strong"
+            >
+              Iniciar sesión
+            </h2>
+            <div class="relative mb-4">
+              <label for="full-name" class="text-xs leading-7 text-gray-400">Email</label>
+              <div class="relative">
+                <input
+                  v-model="formData.email"
+                  type="text"
+                  id="email"
+                  name="email"
+                  placeholder="Ej. correo@ejemplo.com"
+                  class="input-primary input w-full bg-light-medium px-3 py-1 text-base leading-8 text-dark-medium outline-none transition-all duration-500 focus:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary dark:bg-dark-medium dark:text-light-strong"
+                  autocomplete="off"
+                />
+              </div>
+            </div>
+
+            <div class="relative mb-4">
+              <label for="password" class="text-xs leading-7 text-gray-400">Contraseña</label>
+              <div class="relative">
+                <input
+                  id="password"
+                  v-model="formData.password"
+                  name="password"
+                  type="password"
+                  class="input-primary input w-full bg-light-medium px-3 py-1 text-base leading-8 text-dark-medium outline-none transition-all duration-500 focus:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary dark:bg-dark-medium dark:text-light-strong"
+                />
+              </div>
+            </div>
+
+            <button
+              class="btn mx-auto rounded-lg border-0 bg-primary px-8 py-2 font-sans font-bold text-white hover:bg-secondary focus:outline-white"
+            >
+              <span v-if="!isLoading">Enviar</span>
+              <!-- <LoadingSpinner v-else /> -->
+            </button>
+          </div>
+        </form>
+      </section>
+    </main>
+  </Transition>
+</template>

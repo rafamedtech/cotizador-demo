@@ -1,0 +1,1144 @@
+<script lang="ts" setup>
+// Imports
+// import emailjs from "@emailjs/browser";
+import { Modal } from "@/types/modal";
+import type {
+  InvoiceWithItems,
+  InvoiceItems,
+  InvoiceDraft,
+} from "@/types/invoice";
+
+// Definitions
+const { params } = useRoute();
+const store = useStore();
+
+const { id }: any = params;
+const { newInvoice, updateStatusOnDb } = await useInvoice();
+const { invoices } = await useInvoices();
+// const { currentInvoice, updateStatusOnDb } = await useInvoice(id);
+const currentInvoice = ref<InvoiceWithItems | null>(null);
+
+// const invoiceItemList = currentInvoice.value?.invoiceItems;
+const invoiceItemList = ref<InvoiceItems[] | null>(null);
+
+const { isLoading, isLoadingFull, backBtn, modalType } = storeToRefs(store);
+const user = useSupabaseUser();
+
+const swipeAnimation = ref(false);
+
+onMounted(async () => {
+  const { currentInvoice: invoiceCurrent, getCurrentInvoice } =
+    await useInvoice(id);
+  await getCurrentInvoice(id);
+  currentInvoice.value = invoiceCurrent.value as InvoiceWithItems;
+  // invoiceItemList.value = currentInvoice.value?.invoiceItems as InvoiceItems[];
+  isLoadingFull.value = false;
+  swipeAnimation.value = true;
+});
+
+const dateOptions: Intl.DateTimeFormatOptions = {
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+};
+
+function toggleModal() {
+  const html: HTMLHtmlElement | null = document.querySelector("html");
+  if (html) html.style.overflowY = "hidden";
+  backBtn.value?.click();
+}
+
+const lastInvoice = invoices.value?.[0];
+const lastInvoiceId = lastInvoice?.invId;
+
+async function duplicateInvoice() {
+  isLoadingFull.value = true;
+
+  const newId = Number(lastInvoiceId) + 1;
+  const duplicatedInvoice = reactive({
+    invId: newId.toString(),
+    clientCompany: currentInvoice.value?.clientCompany,
+    clientName: currentInvoice.value?.clientName,
+    clientName2: currentInvoice.value?.clientName2,
+    clientEmail: currentInvoice.value?.clientEmail,
+    clientEmail2: currentInvoice.value?.clientEmail2,
+    currencyType: currentInvoice.value?.currencyType,
+    exchangeCost: currentInvoice.value?.exchangeCost,
+    eta: currentInvoice.value?.eta,
+    notes: currentInvoice.value?.notes,
+    invoiceDate: new Date().toLocaleString("es-MX", dateOptions),
+    paymentDueDate: currentInvoice.value?.paymentDueDate,
+    paymentType: currentInvoice.value?.paymentType,
+    invoiceItems: currentInvoice.value?.invoiceItems.map(
+      ({ id, invoiceId, ...item }) => item,
+    ),
+    status: "Borrador",
+    invoiceSubtotal: currentInvoice.value?.invoiceSubtotal,
+    invoiceTax: currentInvoice.value?.invoiceTax,
+    invoiceTotal: currentInvoice.value?.invoiceTotal,
+  });
+
+  await newInvoice(duplicatedInvoice as InvoiceDraft);
+
+  setTimeout(() => {
+    isLoadingFull.value = false;
+  }, 3000);
+
+  await navigateTo(`/cotizacion/${newId.toString()}/editar`);
+}
+
+async function deleteInvoice() {
+  modalType.value = Modal.Delete;
+  toggleModal();
+}
+
+function generatePDF() {
+  modalType.value = Modal.Pdf;
+  toggleModal();
+}
+
+// async function sendEmail() {
+//   isLoading.value = true;
+
+//   try {
+//     const response = await emailjs.send(
+//       'service_iao05ok',
+//       'template_u9jm6y3',
+//       {
+//         customer_name: currentInvoice.value?.clientName.split(' ')[0],
+//         customer_name2: currentInvoice.value?.clientName2
+//           ? `/${currentInvoice.value?.clientName2.split(' ')[0]}`
+//           : '',
+//         customer_email: currentInvoice.value?.clientEmail,
+//         customer_email2: currentInvoice.value?.clientEmail2,
+//         message: location.toString(),
+//       },
+//       'QyWKNAO42Ukv7v_0T'
+//     );
+
+//     console.log(response.status);
+
+//     if (response.status !== 200) throw response;
+//   } catch (error: any) {
+//     console.error(error.text);
+//   }
+//   setTimeout(() => {
+//     isLoading.value = false;
+//     modalType.value = Modal.Email;
+//     toggleModal();
+//   }, 1000);
+// }
+
+const subject = "Tienes una cotización de Render";
+const message = computed(
+  () =>
+    `Puedes ver tu cotización en el siguiente enlace --> ${window.location}`,
+);
+const sendEmail = computed(
+  () =>
+    `mailto:${currentInvoice.value?.clientEmail}?subject=${subject}&body=${message.value}&cc=${currentInvoice.value?.clientEmail2}`,
+);
+
+const statusModal = ref(false);
+
+function changeStatusModal() {
+  statusModal.value = true;
+}
+
+async function changeStatus(status: string) {
+  if (currentInvoice.value) {
+    if (currentInvoice.value.status === status) {
+      return;
+    }
+    currentInvoice.value.status = status;
+  }
+
+  statusModal.value = false;
+  await updateStatusOnDb(currentInvoice.value);
+}
+
+useHead({
+  title: `Cotización #${id} | Render Cotizador`,
+  meta: [
+    {
+      name: "description",
+      content: "Haz recibido una cotización de Render",
+    },
+  ],
+});
+
+// definePageMeta({
+// middleware: async function ({ params }, from) {
+//   const { currentInvoice, getCurrentInvoice } = await useInvoice(params.id as any);
+//   await getCurrentInvoice(params.id as any);
+//   if (!currentInvoice.value) {
+//     return abortNavigation(
+//       createError({
+//         statusCode: 404,
+//         message: 'No se encontro la cotizacion',
+//       })
+//     );
+//   }
+// },
+
+// });
+</script>
+
+<template>
+  <main
+    class="custom-container relative mx-auto w-full max-w-screen-lg px-4 lg:px-10 lg:pb-6"
+    :class="{ 'pb-14 pt-4 lg:pt-4': !user, 'pb-24 pt-[80px]': user }"
+  >
+    <div
+      v-if="currentInvoice && user"
+      class="invoice-view my-container mb-4 print:hidden"
+    >
+      <NuxtLink
+        class="nav-link absolute top-2 flex gap-2 md:relative lg:absolute lg:top-2"
+        :to="{ name: 'cotizaciones' }"
+      >
+        <Icon class="text-primary text-2xl" name="heroicons-solid:arrow-left" />
+        <span class="text-dark-medium dark:text-light-strong">Regresar</span>
+      </NuxtLink>
+      <!-- Header -->
+      <div
+        class="flex flex-row justify-between gap-4 rounded-xl border border-gray-300 bg-white p-4 dark:border-dark-medium dark:bg-dark-strong lg:flex-row"
+      >
+        <div class="form-control mb-4 h-full w-fit items-end">
+          <label class="label w-full text-center">
+            <span class="label-text text-dark-strong dark:text-light-medium"
+              >Etapa</span
+            >
+          </label>
+          <div class="flex flex-1">
+            <StatusButton
+              :status="currentInvoice.status"
+              @@modal="changeStatusModal"
+            />
+            <div class="dropdown-end dropdown relative w-8">
+              <label tabindex="0" class="cursor-pointer">
+                <Icon
+                  name="material-symbols:arrow-drop-down-circle-outline-rounded"
+                  size="32"
+                  @click="changeStatusModal"
+                  class="text-secondary dark:text-dark-secondary"
+              /></label>
+              <ul
+                v-if="statusModal"
+                tabindex="0"
+                class="dropdown-content menu mt-2 flex max-h-[250px] min-h-12 w-40 rounded-lg border border-light-strong bg-white shadow-lg transition-all dark:border dark:border-dark-strong dark:bg-dark-strong dark:text-light-strong"
+              >
+                <li
+                  v-if="currentInvoice.status === 'Borrador'"
+                  class="hover:text-primary dark:hover:text-dark-primary cursor-pointer text-dark-medium dark:text-light-medium"
+                >
+                  <button type="button" @click="changeStatus('Pendiente')">
+                    <Icon
+                      name="icon-park-outline:caution"
+                      class="text-base text-orange-500"
+                    />
+                    Pendiente
+                  </button>
+                </li>
+                <li
+                  class="hover:text-primary dark:hover:text-dark-primary cursor-pointer text-dark-medium dark:text-light-medium"
+                >
+                  <button type="button" @click="changeStatus('Vendida')">
+                    <Icon
+                      name="icon-park-outline:check-one"
+                      class="text-base text-green-500"
+                    />
+                    Vendida
+                  </button>
+                </li>
+                <li
+                  v-if="currentInvoice.status === 'Vendida'"
+                  class="hover:text-primary dark:hover:text-dark-primary cursor-pointer text-dark-medium dark:text-light-medium"
+                >
+                  <button type="button" @click="changeStatus('Cancelada')">
+                    <Icon
+                      name="material-symbols:cancel-outline"
+                      class="text-base text-red-500"
+                    />
+                    Cancelada
+                  </button>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Status bar -->
+
+        <div class="dropdown-end dropdown lg:hidden">
+          <label tabindex="0" class="m-1"
+            ><Icon
+              name="material-symbols:menu"
+              size="32"
+              class="text-secondary dark:text-dark-secondary"
+          /></label>
+          <ul
+            tabindex="0"
+            class="dropdown-content menu rounded-box w-52 bg-white p-2 shadow dark:bg-dark-strong"
+          >
+            <li>
+              <NuxtLink
+                v-if="
+                  currentInvoice.status === 'Borrador' ||
+                  currentInvoice.status === 'Pendiente'
+                "
+                :to="`/cotizacion/${currentInvoice.invId}/editar`"
+                class="hover:border-primary dark:hover:border-primary/50 flex flex-col items-center justify-center gap-1 rounded-lg border border-light-strong bg-light-medium p-4 text-xs text-dark-medium transition-all dark:border-dark-strong dark:bg-dark-medium lg:text-[10px]"
+              >
+                <Icon
+                  name="icon-park-outline:edit"
+                  class="text-secondary dark:text-dark-secondary text-xl"
+                />
+                <span class="text-dark-medium dark:text-light-strong"
+                  >Editar</span
+                >
+              </NuxtLink>
+            </li>
+            <li>
+              <button
+                @click="duplicateInvoice"
+                class="hover:border-primary dark:hover:border-primary/50 flex flex-col items-center justify-center gap-1 rounded-lg border border-light-strong bg-light-medium p-4 text-xs text-dark-medium transition-all dark:border-dark-strong dark:bg-dark-medium lg:text-[10px]"
+              >
+                <Icon
+                  class="text-secondary dark:text-dark-secondary text-xl"
+                  name="material-symbols:content-copy-outline-rounded"
+                />
+
+                <span class="text-dark-medium dark:text-light-strong"
+                  >Duplicar</span
+                >
+              </button>
+            </li>
+
+            <li>
+              <button
+                @click="deleteInvoice"
+                class="hover:border-primary dark:hover:border-primary/50 flex flex-col items-center justify-center gap-1 rounded-lg border border-light-strong bg-light-medium p-4 text-xs text-dark-medium transition-all dark:border-dark-strong dark:bg-dark-medium lg:text-[10px]"
+              >
+                <Icon
+                  class="text-secondary dark:text-dark-secondary text-xl"
+                  name="icon-park-outline:delete"
+                />
+
+                <span class="text-dark-medium dark:text-light-strong"
+                  >Eliminar</span
+                >
+              </button>
+            </li>
+
+            <li>
+              <button
+                @click="generatePDF"
+                class="hover:border-primary dark:hover:border-primary/50 flex flex-col items-center justify-center gap-1 rounded-lg border border-light-strong bg-light-medium p-4 text-xs text-dark-medium transition-all dark:border-dark-strong dark:bg-dark-medium dark:text-light-strong lg:text-[10px]"
+              >
+                <Icon
+                  name="icon-park-outline:doc-detail"
+                  class="text-secondary dark:text-dark-secondary text-xl"
+                />
+                PDF
+              </button>
+            </li>
+            <li>
+              <NuxtLink
+                class="hover:border-primary dark:hover:border-primary/50 flex flex-col items-center justify-center gap-1 rounded-lg border border-light-strong bg-light-medium p-4 text-xs text-dark-medium transition-all dark:border-dark-strong dark:bg-dark-medium dark:text-light-strong lg:text-[10px]"
+                :to="sendEmail"
+                target="_blank"
+              >
+                <Icon
+                  name="icon-park-outline:envelope-one"
+                  class="text-secondary dark:text-dark-secondary text-xl"
+                />
+                Enviar
+              </NuxtLink>
+              <!-- <button
+                class="flex flex-col items-center justify-center gap-1 rounded-lg border border-light-strong bg-light-medium p-4 text-xs text-dark-medium transition-all hover:border-primary dark:border-dark-strong dark:bg-dark-medium dark:text-light-strong dark:hover:border-primary/50 lg:text-[10px]"
+                @click="sendEmail"
+              >
+                <Icon
+                  name="icon-park-outline:envelope-one"
+                  class="text-xl text-secondary dark:text-dark-secondary"
+                />
+                Enviar
+              </button> -->
+            </li>
+          </ul>
+        </div>
+        <div class="hidden items-center justify-center gap-3 lg:flex">
+          <NuxtLink
+            v-if="
+              currentInvoice.status === 'Borrador' ||
+              currentInvoice.status === 'Pendiente'
+            "
+            :to="`/cotizacion/${currentInvoice.invId}/editar`"
+            class="hover:border-primary dark:hover:border-primary/50 flex w-16 flex-col items-center justify-center gap-1 rounded-lg border border-light-strong bg-light-medium p-4 text-xs text-dark-medium transition-all dark:border-dark-strong dark:bg-dark-medium lg:text-[10px]"
+          >
+            <!-- @click="toggleEditInvoice" -->
+            <Icon
+              name="icon-park-outline:edit"
+              class="text-secondary dark:text-dark-secondary text-xl"
+            />
+            <span class="text-dark-medium dark:text-light-strong">Editar</span>
+          </NuxtLink>
+          <label ref="backBtn" for="my-modal-6" class="hidden"></label>
+          <button
+            @click="duplicateInvoice"
+            class="hover:border-primary dark:hover:border-primary/50 flex w-16 flex-col items-center justify-center gap-1 rounded-lg border border-light-strong bg-light-medium p-4 text-xs text-dark-medium transition-all dark:border-dark-strong dark:bg-dark-medium lg:text-[10px]"
+          >
+            <Icon
+              class="text-secondary dark:text-dark-secondary text-xl"
+              name="material-symbols:content-copy-outline-rounded"
+            />
+
+            <span class="text-dark-medium dark:text-light-strong"
+              >Duplicar</span
+            >
+          </button>
+          <button
+            @click="deleteInvoice"
+            class="hover:border-primary dark:hover:border-primary/50 flex w-16 flex-col items-center justify-center gap-1 rounded-lg border border-light-strong bg-light-medium p-4 text-xs text-dark-medium transition-all dark:border-dark-strong dark:bg-dark-medium lg:text-[10px]"
+          >
+            <Icon
+              class="text-secondary dark:text-dark-secondary text-xl"
+              name="icon-park-outline:delete"
+            />
+
+            <span class="text-dark-medium dark:text-light-strong"
+              >Eliminar</span
+            >
+          </button>
+
+          <button
+            @click="generatePDF"
+            class="hover:border-primary dark:hover:border-primary/50 flex w-16 flex-col items-center justify-center gap-1 rounded-lg border border-light-strong bg-light-medium p-4 text-xs text-dark-medium transition-all dark:border-dark-strong dark:bg-dark-medium dark:text-light-strong lg:text-[10px]"
+          >
+            <Icon
+              name="icon-park-outline:doc-detail"
+              class="text-secondary dark:text-dark-secondary text-xl"
+            />
+            PDF
+          </button>
+          <NuxtLink
+            class="hover:border-primary dark:hover:border-primary/50 flex w-16 flex-col items-center justify-center gap-1 rounded-lg border border-light-strong bg-light-medium p-4 text-xs text-dark-medium transition-all dark:border-dark-strong dark:bg-dark-medium dark:text-light-strong lg:text-[10px]"
+            :to="sendEmail"
+            target="_blank"
+          >
+            <Icon
+              name="icon-park-outline:envelope-one"
+              class="text-secondary dark:text-dark-secondary text-xl"
+            />
+            Enviar
+          </NuxtLink>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cover -->
+
+    <div
+      class="relative mb-8 rounded-[20px] bg-white lg:h-[235px] print:block lg:print:h-[200px] lg:print:w-screen"
+      :class="{ hidden: user }"
+    >
+      <!-- <picture>
+        <source
+          media="(max-width: 767px)"
+          srcset="@/assets/images/portada.jpg"
+        />
+        <img
+          src="@/assets/images/portada.jpg"
+          srcset="@/assets/images/portada.jpg"
+          alt=""
+          class="w-full rounded-[20px] lg:h-auto lg:object-cover"
+        />
+      </picture> -->
+    </div>
+    <div
+      class="relative mb-8 hidden h-fit bg-white print:h-[700px] print:items-center print:justify-center"
+    >
+      <figure class="h-full">
+        <!-- <img
+          class="h-auto w-full rounded-[20px]"
+          src="@/assets/images/portada.jpg"
+          alt="cover image"
+        /> -->
+      </figure>
+    </div>
+
+    <!-- Invoice body -->
+    <div id="pdf-content" class="w-full">
+      <section
+        class="rounded-xl border border-gray-300 bg-white pt-4 dark:border-dark-medium dark:bg-dark-strong print:border print:border-light-strong print:shadow-none"
+      >
+        <section class="relative flex h-full justify-between px-4 lg:px-8">
+          <div class="mb-4 h-full w-1/2">
+            <!-- <img
+              class="mb-2 h-24 lg:my-4"
+              src="@/assets/images/logo-rosa-cropped.png"
+            /> -->
+            <Logo />
+          </div>
+          <h1
+            class="text-primary absolute inset-0 top-2 hidden h-fit text-center text-xl font-bold uppercase italic lg:block"
+          >
+            Cotización
+          </h1>
+          <div class="flex flex-col items-end">
+            <p
+              class="dark:text-light font-bold uppercase text-dark-medium dark:text-light-strong"
+            >
+              #{{ id }}
+            </p>
+
+            <h3
+              class="text-primary dark:text-dark-primary text-xs lg:text-base"
+            >
+              Fecha
+            </h3>
+
+            <p
+              class="dark:text-light-strongm text-[10px] text-dark-medium dark:text-light-strong"
+            >
+              {{ currentInvoice?.invoiceDate }}
+            </p>
+
+            <h3
+              class="text-primary dark:text-dark-primary text-xs lg:text-base"
+            >
+              Vigencia
+            </h3>
+
+            <p
+              class="dark:text-light text-[10px] text-dark-medium dark:text-light-strong"
+            >
+              {{
+                new Date(
+                  currentInvoice?.paymentDueDate as Date,
+                ).toLocaleDateString("es-MX", dateOptions)
+              }}
+            </p>
+
+            <h3
+              class="text-primary dark:text-dark-primary text-xs lg:text-base"
+            >
+              Entrega
+            </h3>
+
+            <p
+              class="dark:text-light text-[10px] text-dark-medium dark:text-light-strong"
+            >
+              {{ currentInvoice?.eta }}
+            </p>
+          </div>
+        </section>
+
+        <!-- Customer information section -->
+        <section class="pb-4">
+          <h2
+            class="text-md border-secondary mx-auto mb-4 w-fit border-b-2 text-dark-strong dark:text-light-strong lg:text-base"
+          >
+            Información del cliente
+          </h2>
+
+          <ul
+            class="grid grid-cols-3 gap-4 px-4 text-xs lg:grid-cols-5 lg:px-8 print:grid-cols-5"
+          >
+            <li class="text-center">
+              <h3
+                class="text-primary dark:text-dark-primary mb-2 text-xs lg:text-base"
+              >
+                Nombre
+              </h3>
+              <p
+                class="text-[10px] capitalize text-dark-strong dark:text-light-strong lg:text-xs print:text-[10px]"
+              >
+                <!-- Nombre -->
+                {{ currentInvoice?.clientName }}
+              </p>
+              <p
+                class="text-[10px] capitalize text-dark-strong dark:text-light-strong lg:text-xs print:text-[10px]"
+              >
+                <!-- Nombre 2 -->
+                {{ currentInvoice?.clientName2 }}
+              </p>
+            </li>
+            <li class="text-center">
+              <h3
+                class="text-primary dark:text-dark-primary mb-2 border-dark-strong text-xs dark:border-light-strong lg:text-base"
+              >
+                Empresa
+              </h3>
+              <p
+                class="text-[10px] text-dark-strong dark:text-light-strong lg:text-xs print:text-[10px]"
+              >
+                <!-- Empresa -->
+                {{ currentInvoice?.clientCompany }}
+              </p>
+            </li>
+            <li class="text-center">
+              <h3
+                class="text-primary dark:text-dark-primary mb-2 border-dark-strong text-xs dark:border-light-strong lg:text-base"
+              >
+                Forma de pago
+              </h3>
+              <p
+                class="text-[10px] text-dark-strong dark:text-light-strong lg:text-xs print:text-[10px]"
+              >
+                <!-- Forma de pago -->
+                {{ currentInvoice?.paymentType }}
+              </p>
+            </li>
+            <li class="text-center">
+              <h3
+                class="text-primary dark:text-dark-primary mb-2 border-dark-strong text-xs dark:border-light-strong lg:text-base"
+              >
+                Moneda
+              </h3>
+              <p
+                class="text-[10px] text-dark-strong dark:text-light-strong lg:text-xs print:text-[10px]"
+              >
+                <!-- Moneda -->
+                {{ currentInvoice?.currencyType }}
+              </p>
+            </li>
+            <li class="text-center">
+              <h3
+                class="text-primary dark:text-dark-primary mb-2 border-dark-strong text-xs dark:border-light-strong lg:text-base"
+              >
+                Tipo de cambio
+              </h3>
+              <p
+                class="text-[10px] text-dark-strong dark:text-light-strong lg:text-xs print:text-[10px]"
+              >
+                <!-- Exchange -->
+                {{ currentInvoice?.exchangeCost ? "$" : ""
+                }}{{
+                  currentInvoice?.exchangeCost
+                    ? currentInvoice?.exchangeCost
+                    : "N/A"
+                }}
+              </p>
+            </li>
+          </ul>
+        </section>
+      </section>
+
+      <!-- Items table -->
+      <section
+        class="relative mt-4 hidden max-h-[300px] min-h-[300px] overflow-x-auto rounded-xl border border-gray-300 bg-white dark:border-dark-medium dark:bg-dark-strong lg:block print:block print:border print:border-light-strong print:shadow-none"
+      >
+        <div
+          class="mt-2 flex w-[150vw] justify-between gap-2 px-4 text-[10px] lg:w-full lg:justify-between lg:gap-2 lg:px-8 print:w-full"
+        >
+          <div class="w-72 lg:basis-5/12 print:w-7/12">
+            <h5 class="text-primary w-full py-2 font-bold">Descripción</h5>
+          </div>
+          <!-- <h5
+            class="py-2 text-center font-bold text-primary dark:text-dark-primary print:w-1/12 print:basis-1/12 lg:basis-[10%]"
+          >
+            Condición
+          </h5> -->
+          <h5
+            class="text-primary py-2 text-center font-bold lg:basis-1/12 print:w-1/12"
+          >
+            Cantidad
+          </h5>
+          <h5
+            class="text-primary py-2 text-center font-bold lg:basis-2/12 print:basis-2/12"
+          >
+            Precio unitario
+          </h5>
+          <h5 class="text-primary w-12 py-2 text-right font-bold print:w-1/12">
+            Importe
+          </h5>
+        </div>
+
+        <div
+          class="flex w-[150vw] justify-between gap-2 px-4 text-[10px] lg:w-full lg:justify-between lg:gap-2 lg:px-8 print:w-full"
+          v-for="(item, index) in currentInvoice?.invoiceItems"
+          :key="index"
+        >
+          <div class="w-72 lg:basis-5/12 print:w-7/12">
+            <p
+              class="w-full overflow-x-hidden pt-2 text-left text-dark-strong dark:text-light-strong print:text-[10px]"
+            >
+              <!-- Nombre del item -->
+              {{ item.itemName || "Artículo sin nombre" }}
+            </p>
+            <p
+              class="text-dark-primary w-full overflow-x-hidden pb-2 text-left italic print:text-[10px]"
+            >
+              <!-- Nombre del item -->
+              {{ item.itemDescription || "Artículo sin descripción" }}
+            </p>
+          </div>
+          <!-- <p
+            class="py-2 text-center text-dark-strong dark:text-light-strong print:w-1/12 print:basis-1/12 print:text-[10px] lg:basis-[10%]"
+          >
+            
+            {{ item.condition }}
+          </p> -->
+          <p
+            class="py-2 text-center text-dark-strong dark:text-light-strong lg:basis-1/12 print:w-1/12"
+          >
+            <!-- Cantidad -->
+            {{ item.qty }}
+          </p>
+          <p
+            class="py-2 text-center text-dark-strong dark:text-light-strong lg:basis-2/12 print:basis-2/12"
+          >
+            {{
+              new Intl.NumberFormat("es-MX", {
+                style: "currency",
+                currency: "MXN",
+              }).format(item.price)
+            }}
+          </p>
+          <p
+            class="w-12 py-2 text-right text-dark-strong dark:text-light-strong print:w-1/12"
+          >
+            {{
+              new Intl.NumberFormat("es-MX", {
+                style: "currency",
+                currency: "MXN",
+              }).format(item.total)
+            }}
+          </p>
+        </div>
+      </section>
+
+      <!-- Items mobile -->
+      <section class="mt-4 lg:hidden print:hidden">
+        <h3
+          class="border-primary mx-auto mb-4 w-fit border-b-2 text-center text-base text-dark-medium dark:text-light-medium"
+        >
+          Artículos
+        </h3>
+        <section
+          v-if="swipeAnimation"
+          class="text-secondary dark:text-dark-secondary mx-auto mb-2 flex items-center justify-center gap-4 lg:hidden"
+        >
+          <Icon
+            name="material-symbols:arrow-back-rounded"
+            size="32"
+            class="animate-ping"
+          />
+          <span class="text-primary dark:text-dark-primary">Desliza</span>
+          <Icon
+            name="material-symbols:arrow-forward-rounded"
+            size="32"
+            class="animate-ping"
+          />
+        </section>
+        <div
+          class="carousel-center carousel min-w-full max-w-md space-x-4 rounded-xl bg-gray-300 p-4 dark:bg-dark-strong"
+        >
+          <div
+            class="carousel-item"
+            v-for="(item, index) in currentInvoice?.invoiceItems"
+            :key="index"
+          >
+            <div class="card bg-base-100 shadow-xl dark:bg-dark-medium">
+              <div class="card-body text-xs">
+                <h2
+                  class="card-title w-52 text-[16px] text-dark-medium dark:text-light-medium"
+                >
+                  {{ item.itemName || "Artículo sin nombre" }}
+                </h2>
+                <p class="w-[35ch] text-dark-medium dark:text-light-medium">
+                  <span class="text-primary dark:text-primary/50 font-bold"
+                    >Descripción:</span
+                  >
+                  {{ item.itemDescription || "Artículo sin descripción" }}
+                </p>
+                <p class="text-dark-medium dark:text-light-medium">
+                  <span class="text-primary dark:text-primary/50 font-bold"
+                    >Cantidad:</span
+                  >
+                  {{ item.qty }}
+                </p>
+                <p class="text-dark-medium dark:text-light-medium">
+                  <span class="text-primary dark:text-primary/50 font-bold"
+                    >Precio unitario:</span
+                  >
+                  {{
+                    new Intl.NumberFormat("es-MX", {
+                      style: "currency",
+                      currency: "MXN",
+                    }).format(item.price)
+                  }}
+                </p>
+                <div class="card-actions items-center">
+                  <button
+                    class="btn text-primary flex gap-2 border-light-strong bg-white text-xs hover:border-light-strong hover:bg-transparent dark:border-dark-medium dark:bg-dark-strong"
+                  >
+                    <span class="text-dark-medium dark:text-light-medium"
+                      >Importe:
+                    </span>
+                    <span>
+                      {{
+                        new Intl.NumberFormat("es-MX", {
+                          style: "currency",
+                          currency: "MXN",
+                        }).format(item.total)
+                      }}</span
+                    >
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- Terms and total sections -->
+      <section
+        class="flex w-full flex-col-reverse gap-4 overflow-y-hidden py-4 lg:flex-row print:flex-row"
+      >
+        <section
+          class="flex w-full flex-col gap-4 overflow-y-hidden rounded-xl border border-gray-300 bg-white px-6 py-4 dark:border-dark-medium dark:bg-dark-strong lg:w-4/5 lg:flex-row print:w-3/5 print:basis-4/5 print:flex-row print:border print:border-light-strong print:pr-0 print:shadow-none"
+        >
+          <div class="overflow-y-hidden lg:w-1/2 print:w-2/5">
+            <h3
+              class="text-primary dark:text-dark-primary mb-2 w-fit print:text-xs"
+            >
+              Condiciones del servicio
+            </h3>
+            <ul
+              class="w-full text-[8px] italic text-dark-strong dark:text-light-strong lg:w-[50ch] print:w-full print:text-[6px]"
+            >
+              <li>- Precio en pesos mexicanos (mxn)</li>
+              <li>
+                - Horarios de atención: Lunes a viernes de 9 am a 7pm - Sábados
+                de 9am a 1pm
+              </li>
+              <li>- Al requerir factura se incluye IVA</li>
+              <li>- No hay devoluciones</li>
+              <li>
+                - Toda solicitud de diseño, producción de vídeo, edición web,
+                fotografía, etc. Se pide con un mínimo de 72 horas de
+                anticipación (sujeto a disponibilidad)
+              </li>
+              <li class="text-secondary dark:text-primary font-bold">
+                ¡GRACIAS POR CONFIAR EN RENDER!
+              </li>
+            </ul>
+          </div>
+          <div class="w-full lg:w-1/2 print:w-2/5">
+            <h3
+              class="text-primary dark:text-dark-primary mb-2 w-fit print:text-xs"
+            >
+              Notas:
+            </h3>
+            <p
+              class="h-12 w-full overflow-hidden text-[8px] uppercase italic text-dark-strong dark:text-light-strong lg:w-[50ch] print:w-full print:text-[6px]"
+            >
+              <!-- Notas -->
+              {{ currentInvoice?.notes }}
+            </p>
+          </div>
+        </section>
+        <section
+          class="flex w-full basis-[30%] flex-col justify-center rounded-xl border border-gray-300 bg-white px-6 py-4 dark:border-dark-medium dark:bg-dark-strong lg:w-1/5 print:basis-[30%] print:border print:border-light-strong print:px-4 print:text-xs print:shadow-none"
+        >
+          <div class="flex items-center justify-between">
+            <div class="flex flex-col gap-2">
+              <p class="text-primary dark:text-dark-primary text-xs">
+                Subtotal
+              </p>
+              <p class="text-primary dark:text-dark-primary text-xs">IVA 16%</p>
+            </div>
+            <div class="flex flex-col items-end gap-2 text-xs">
+              <p class="text-dark-strong dark:text-light-strong">
+                <!-- Subtotal -->
+                {{
+                  new Intl.NumberFormat("es-MX", {
+                    style: "currency",
+                    currency: "MXN",
+                  }).format(currentInvoice?.invoiceSubtotal as number)
+                }}
+              </p>
+              <p class="text-dark-strong dark:text-light-strong">
+                <!-- Tax -->
+                {{
+                  new Intl.NumberFormat("es-MX", {
+                    style: "currency",
+                    currency: "MXN",
+                  }).format(currentInvoice?.invoiceTax as number)
+                }}
+              </p>
+            </div>
+          </div>
+          <div class="divide divider my-0 w-full"></div>
+          <div class="flex w-full justify-between font-bold">
+            <p class="text-primary dark:text-dark-primary">Total</p>
+            <p class="text-primary">
+              <!-- Total -->
+              {{
+                new Intl.NumberFormat("es-MX", {
+                  style: "currency",
+                  currency: "MXN",
+                }).format(currentInvoice?.invoiceTotal as number)
+              }}
+            </p>
+          </div>
+        </section>
+      </section>
+    </div>
+    <!-- :class="{ hidden: user }" -->
+
+    <!-- Crear PDF usuario -->
+    <div class="pdf flex justify-center print:hidden" v-if="!user">
+      <button
+        @click="generatePDF"
+        class="bg-primary dark:bg-primary/50 mt-8 flex h-14 w-40 flex-row items-center justify-center gap-2 rounded-lg border border-light-strong px-10 py-6 text-xs text-white transition-all dark:border-dark-strong"
+      >
+        <i class="fa-solid fa-file-pdf text-lg"></i>
+        Crear PDF
+      </button>
+    </div>
+  </main>
+</template>
+
+<!-- <style lang="scss" scoped>
+@keyframes ping {
+  75%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+@keyframes custom-ping {
+  15% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  30% {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+  45% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  60% {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+  75% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  90% {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-ping {
+  animation: custom-ping 5s linear;
+}
+
+.custom-container {
+  @apply print:m-0 print:min-h-full print:p-0 md:pt-0 lg:pt-[70px];
+}
+
+.pdf {
+  @media print {
+    display: none;
+    position: absolute;
+  }
+}
+.invoice-view {
+  .nav-link {
+    margin-top: 16px;
+    margin-bottom: 32px;
+    align-items: center;
+    // color: #1a1a1a;
+    font-size: 12px;
+    img {
+      margin-right: 16px;
+      width: 7px;
+      height: 10px;
+    }
+  }
+
+  .header,
+  .invoice-details {
+    // background-color: #fff;
+    @apply rounded-box;
+  }
+
+  .header {
+    align-items: center;
+    padding: 24px 32px;
+    font-size: 12px;
+
+    .left {
+      align-items: center;
+
+      span {
+        margin-right: 16px;
+      }
+    }
+
+    .right {
+      flex: 1;
+      justify-content: flex-end;
+    }
+  }
+
+  .invoice-details {
+    padding: 48px;
+    margin-top: 24px;
+
+    .top {
+      div {
+        color: #dfe3fa;
+        flex: 1;
+      }
+
+      .left {
+        font-size: 12px;
+        p:first-child {
+          font-size: 24px;
+          text-transform: uppercase;
+          color: #fff;
+          margin-bottom: 8px;
+        }
+
+        p:nth-child(2) {
+          font-size: 16px;
+        }
+
+        span {
+          color: #888eb0;
+        }
+      }
+
+      .right {
+        font-size: 12px;
+        align-items: flex-end;
+      }
+    }
+
+    .middle {
+      margin-top: 50px;
+      color: #dfe3fa;
+      gap: 16px;
+
+      h4 {
+        font-size: 12px;
+        font-weight: 400;
+        margin-bottom: 12px;
+      }
+
+      p {
+        font-size: 16px;
+      }
+
+      .bill,
+      .payment {
+        flex: 1;
+      }
+
+      .payment {
+        h4:nth-child(3) {
+          margin-top: 32px;
+        }
+
+        p {
+          font-weight: 600;
+        }
+      }
+
+      .bill {
+        p:nth-child(2) {
+          font-size: 16px;
+        }
+        p:nth-child(3) {
+          margin-top: auto;
+        }
+
+        p {
+          font-size: 12px;
+        }
+      }
+
+      .send-to {
+        flex: 2;
+      }
+    }
+
+    .bottom {
+      margin-top: 50px;
+
+      .billing-items {
+        padding: 32px;
+        border-radius: 20px 20px 0 0;
+        background-color: #252945;
+
+        .heading {
+          color: #dfe3fa;
+          margin-bottom: 32px;
+
+          p:first-child {
+            flex: 3;
+            text-align: left;
+          }
+
+          p {
+            flex: 1;
+            text-align: right;
+          }
+        }
+
+        .item {
+          margin-bottom: 32px;
+          font-size: 13px;
+          color: #fff;
+
+          &:last-child {
+            margin-bottom: 0;
+          }
+
+          p:first-child {
+            flex: 3;
+            text-align: left;
+          }
+
+          p {
+            flex: 1;
+            text-align: right;
+          }
+        }
+      }
+
+      .total {
+        color: #fff;
+        padding: 32px;
+        background-color: rgba(12, 14, 22, 0.7);
+        align-items: center;
+        border-radius: 0 0 20px 20px;
+
+        p {
+          flex: 1;
+          font-size: 12px;
+        }
+
+        p:nth-child(2) {
+          font-size: 28px;
+          text-align: right;
+        }
+      }
+    }
+  }
+}
+</style> -->

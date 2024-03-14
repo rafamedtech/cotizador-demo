@@ -8,8 +8,7 @@ import {
   minValue,
   helpers,
 } from "@vuelidate/validators";
-// import VueDatepickerUi from 'vue-datepicker-ui';
-import "vue-datepicker-ui/lib/vuedatepickerui.css";
+
 import { uid } from "uid";
 import { format } from "date-fns";
 
@@ -27,6 +26,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const store = useStore();
+
 const router = useRouter();
 const { invoices } = await useInvoices();
 // const invoiceObject = store.invoiceObject;
@@ -38,12 +38,6 @@ const invoiceTitle = computed(() => {
   return props.edit ? "Editar Cotización" : "Nueva Cotización";
 });
 
-const dateOptions: Intl.DateTimeFormatOptions = {
-  year: "numeric",
-  month: "short",
-  day: "numeric",
-};
-
 const initialInvoice = ref({ invId: 300 });
 const lastInvoice = ref(invoices.value?.[0] ?? initialInvoice.value);
 // console.log(lastInvoice.value);
@@ -52,6 +46,9 @@ const lastInvoiceId = lastInvoice.value?.invId;
 const newId = computed(() => {
   return Number(lastInvoiceId) + 1;
 });
+
+const { contactData, backBtn, isLoading, modalType, filterResults } =
+  storeToRefs(store);
 
 const invoiceObject = reactive<InvoiceDraft>({
   // invId: "",
@@ -65,7 +62,7 @@ const invoiceObject = reactive<InvoiceDraft>({
   exchangeCost: 0,
   eta: "Inmediata",
   notes: "",
-  invoiceDate: new Date().toLocaleString("es-MX", dateOptions),
+  invoiceDate: new Date(),
   paymentDueDate: new Date(),
   paymentType: "Contado",
   invoiceItems: [
@@ -107,8 +104,7 @@ if (props.edit) {
 
 // Saved contacts menu
 const contactsModal = ref(false);
-const { contactData, backBtn, isLoading, modalType, filterResults } =
-  storeToRefs(store);
+
 const filteredContacts = ref<Contact[]>([]);
 const uniqueContacts = ref(
   Array.from(new Set(contactData.value.map((a) => a.clientCompany))).map(
@@ -119,7 +115,7 @@ const uniqueContacts = ref(
 );
 
 const filterContacts = () => {
-  if (invoiceObject.clientCompany.length === 0) {
+  if (invoiceObject.clientCompany === "Elige un cliente") {
     filteredContacts.value = uniqueContacts.value as Contact[];
   }
 
@@ -130,14 +126,6 @@ const filterContacts = () => {
   }) as Contact[];
 };
 
-function clearSearch() {
-  invoiceObject.clientCompany = "";
-  invoiceObject.clientName = "";
-  invoiceObject.clientEmail = "";
-  invoiceObject.clientName2 = "";
-  invoiceObject.clientEmail2 = "";
-}
-
 const createContact = (contact: string) => {
   filteredContacts.value.push({
     clientCompany: contact,
@@ -147,13 +135,21 @@ const createContact = (contact: string) => {
     clientEmail2: "",
   });
   invoiceObject.clientCompany = contact;
+  invoiceObject.clientName = "";
+  invoiceObject.clientEmail = "";
+  invoiceObject.clientName2 = "";
+  invoiceObject.clientEmail2 = "";
 };
 
 const setContact = (contact: string) => {
   const currentContact = filteredContacts.value.find(
     (c) => c?.clientCompany === contact,
   );
-  // console.log(currentContact);
+
+  if (!currentContact) {
+    createContact(contact);
+    return;
+  }
   invoiceObject.clientCompany = currentContact?.clientCompany ?? "";
   invoiceObject.clientName = currentContact?.clientName ?? "";
   invoiceObject.clientName2 = currentContact?.clientName2 ?? "";
@@ -167,6 +163,8 @@ watchEffect(() => {
 
 onMounted(() => {
   filterContacts();
+  invoiceObject.clientCompany =
+    invoiceObject.clientCompany || "Elige un cliente";
 });
 
 // Invoice validation
@@ -285,7 +283,7 @@ const buttonLoading = ref(false);
 async function onSubmit() {
   buttonLoading.value = true;
   // console.log({ ...company.value, ...invoiceObject });
-  console.log(invoiceObject);
+  // console.log(invoiceObject);
   // v$.value.$validate();
   if (!v$.value.$error) {
     // if (props.edit) {
@@ -300,10 +298,11 @@ async function onSubmit() {
     //   // router.back();
     //   return navigateTo(`/cotizacion/${invoiceObject.invId}`);
     // }
-    // setTimeout(async () => {
-    //   await uploadInvoice();
-    //   await navigateTo("/cotizaciones");
-    // }, 1000);
+    setTimeout(async () => {
+      await uploadInvoice();
+      buttonLoading.value = false;
+      await navigateTo("/cotizaciones");
+    }, 1000);
   } else {
     buttonLoading.value = false;
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -317,6 +316,13 @@ function discardInvoice() {
 
 const invoiceStatus = ["Borrador", "Pendiente", "Vendida", "Cancelada"];
 
+const options = [
+  { id: 1, name: "Borrador", color: "gray" },
+  { id: 2, name: "Pendiente", color: "yellow" },
+  { id: 3, name: "Vendida", color: "green" },
+  { id: 4, name: "Cancelada", color: "red" },
+];
+
 const company = reactive({
   clientCompany: "",
 });
@@ -328,14 +334,14 @@ const company = reactive({
   >
     <form @submit.prevent="onSubmit" class="relative w-full">
       <h1
-        class="border-primary dark:border-dark-primary w-fit border-b-2 text-2xl text-dark-medium dark:text-light-medium"
+        class="text-primary w-fit border-b-2 border-gray-800 text-2xl dark:border-gray-200"
       >
         {{ invoiceTitle }}
       </h1>
 
       <div class="my-8 flex flex-col">
         <h4
-          class="text-primary dark:text-dark-primary mb-2 w-fit border-b border-dark-medium text-lg font-bold dark:border-light-medium"
+          class="dark:text-dark-primary border-primary mb-2 w-fit border-b text-lg font-bold text-gray-800 dark:text-gray-200"
         >
           Datos generales
         </h4>
@@ -350,6 +356,7 @@ const company = reactive({
             </label>
             <div>
               <USelectMenu
+                clear-search-on-close
                 searchable
                 searchable-placeholder="Escribe nombre del cliente..."
                 placeholder="Elige un cliente"
@@ -386,22 +393,17 @@ const company = reactive({
             <div class="relative w-full">
               <USelectMenu
                 v-model="invoiceObject.status"
-                :options="invoiceStatus"
-              />
-
-              <!-- <Icon
-                v-if="invoiceObject.clientCompany && !edit"
-                @click="clearSearch"
-                name="heroicons-solid:x-mark"
-                class="text-primary absolute right-2 top-4 cursor-pointer"
-              />
-              <label class="label">
-                <span
-                  v-if="v$.clientCompany.$error"
-                  class="label-text-alt text-red-500"
-                  >{{ v$.clientCompany.$errors[0].$message }}</span
-                >
-              </label> -->
+                :options="options"
+                option-attribute="name"
+              >
+                <template #option="{ option }">
+                  <span
+                    class="h-2 w-2 rounded-full"
+                    :class="`bg-${option.color}-500 dark:bg-${option.color}-400`"
+                  ></span>
+                  <span class="truncate">{{ option.name }}</span>
+                </template>
+              </USelectMenu>
             </div>
           </div>
         </div>
@@ -458,15 +460,6 @@ const company = reactive({
             <label for="currencyType" class="dark:text-light-strong"
               >Moneda</label
             >
-            <!-- <select
-              class="input-primary input w-full bg-light-medium"
-              name="currencyType"
-              v-model="invoiceObject.currencyType"
-              id="currencyType"
-            >
-              <option value="MX">MX</option>
-              <option value="USD">USD</option>
-            </select> -->
             <USelectMenu
               v-model="invoiceObject.currencyType"
               :options="['MX', 'USD']"
@@ -500,12 +493,11 @@ const company = reactive({
           </div>
         </div>
 
-        <!-- <div class="divider"></div> -->
         <UDivider class="my-4" />
 
         <!-- Contactos -->
         <h4
-          class="text-primary dark:text-dark-primary mb-4 w-fit border-b border-dark-medium text-lg font-bold dark:border-light-medium"
+          class="dark:text-dark-primary border-primary mb-2 w-fit border-b text-lg font-bold text-gray-800 dark:text-gray-200"
         >
           Contactos
         </h4>
@@ -515,33 +507,6 @@ const company = reactive({
               Contacto 1
             </h5>
 
-            <!-- <BaseInput
-              label="Nombre"
-              placeholder="Escribe aqui..."
-              v-model="invoiceObject.clientName"
-              class="capitalize"
-              isrequired
-            >
-              <span
-                v-if="v$.clientName.$error"
-                class="label-text-alt text-red-500"
-                >{{ v$.clientName.$errors[0].$message }}</span
-              >
-            </BaseInput> -->
-
-            <!-- <BaseInput
-              label="Correo electrónico"
-              placeholder="Ej. correo@ejemplo.com"
-              v-model="invoiceObject.clientEmail"
-              @change="v$.clientEmail.$touch"
-              isrequired
-            >
-              <span
-                v-if="v$.clientEmail.$error"
-                class="label-text-alt text-red-500"
-                >{{ v$.clientEmail.$errors[0].$message }}</span
-              >
-            </BaseInput> -->
             <section class="flex flex-col gap-2">
               <div class="flex flex-col">
                 <label for="currencyType" class="dark:text-light-strong"
@@ -599,7 +564,7 @@ const company = reactive({
         <div class="flex flex-col">
           <div class="mt-4 hidden lg:block">
             <h3
-              class="text-primary dark:text-dark-primary mb-4 w-fit border-b border-dark-medium text-lg font-bold dark:border-light-medium"
+              class="dark:text-dark-primary border-primary mb-2 w-fit border-b text-lg font-bold text-gray-800 dark:text-gray-200"
             >
               Artículos
             </h3>
@@ -644,47 +609,11 @@ const company = reactive({
                         v-model="item.itemDescription"
                       />
                     </div>
-                    <!-- <div>
-                      <input
-                        type="checkbox"
-                        id="my-modal-3"
-                        class="modal-toggle"
-                      />
-                      <div class="modal backdrop-blur-sm">
-                        <div class="modal-box relative dark:bg-dark-strong">
-                          <label
-                            for="my-modal-3"
-                            class="btn-secondary btn-sm btn-circle btn dark:border-dark-secondary dark:bg-dark-secondary absolute right-2 top-2"
-                            >✕</label
-                          >
-                          <h3
-                            class="text-primary dark:text-dark-primary mb-4 text-lg font-bold"
-                          >
-                            Descripción del artículo
-                          </h3>
-                          <textarea
-                            placeholder="Escribe aqui..."
-                            class="input h-32 min-h-[4rem] w-full rounded-[12px] bg-light-medium py-4"
-                            v-model.trim="item.itemDescription"
-                          >
-                          </textarea>
-                        </div>
-                      </div>
-                    </div> -->
                   </td>
                   <td class="w-1/12">
                     <UInput type="number" v-model="item.qty" />
                   </td>
                   <td class="relative w-2/12">
-                    <!-- <UInput
-                      class="input focus:ring-primary w-full bg-light-medium text-right dark:bg-dark-medium dark:text-light-strong"
-                      type="number"
-                      v-model="item.price"
-                    /> -->
-                    <!-- <span
-                      class="absolute left-2 top-3 text-dark-medium dark:text-light-medium"
-                      >$</span
-                    > -->
                     <UInput
                       icon="i-heroicons-currency-dollar"
                       size="sm"
@@ -858,7 +787,7 @@ const company = reactive({
 
           <section class="form-control mb-4 flex flex-col">
             <h3
-              class="text-primary dark:text-dark-primary mb-4 w-fit border-b border-dark-medium text-lg font-bold dark:border-light-medium"
+              class="dark:text-dark-primary border-primary mb-2 w-fit border-b text-lg font-bold text-gray-800 dark:text-gray-200"
             >
               Notas
             </h3>

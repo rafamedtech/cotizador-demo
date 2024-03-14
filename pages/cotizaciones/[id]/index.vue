@@ -66,7 +66,7 @@ async function duplicateInvoice() {
     exchangeCost: currentInvoice.value?.exchangeCost,
     eta: currentInvoice.value?.eta,
     notes: currentInvoice.value?.notes,
-    invoiceDate: new Date().toLocaleString("es-MX", dateOptions),
+    invoiceDate: new Date(),
     paymentDueDate: currentInvoice.value?.paymentDueDate,
     paymentType: currentInvoice.value?.paymentType,
     invoiceItems: currentInvoice.value?.invoiceItems.map(
@@ -186,20 +186,20 @@ useHead({
 
 <template>
   <main
-    class="custom-container relative mx-auto w-full max-w-screen-lg px-4 lg:px-10 lg:pb-6"
-    :class="{ 'pb-14 pt-4 lg:pt-4': !user, 'pb-24 pt-[80px]': user }"
+    class="relative mx-auto w-full max-w-screen-lg px-4 lg:px-10 lg:pb-6"
+    :class="{ 'pb-14 pt-4 lg:pt-0': !user, 'pb-24 pt-[30px]': user }"
   >
-    <div
-      v-if="currentInvoice && user"
-      class="invoice-view my-container mb-4 print:hidden"
-    >
-      <NuxtLink
-        class="nav-link absolute top-2 flex gap-2 md:relative lg:absolute lg:top-2"
-        :to="{ name: 'cotizaciones' }"
-      >
-        <Icon class="text-primary text-2xl" name="heroicons-solid:arrow-left" />
-        <span class="text-dark-medium dark:text-light-strong">Regresar</span>
-      </NuxtLink>
+    <div v-if="currentInvoice && user" class="mb-4 print:hidden">
+      <UButton
+        icon="i-heroicons-arrow-left"
+        type="button"
+        to="/cotizaciones"
+        variant="ghost"
+        color="gray"
+        class="z-50 mb-6 w-fit self-start"
+        label="Regresar"
+      />
+
       <!-- Header -->
       <div
         class="flex flex-row justify-between gap-4 rounded-xl border border-gray-300 bg-white p-4 dark:border-dark-medium dark:bg-dark-strong lg:flex-row"

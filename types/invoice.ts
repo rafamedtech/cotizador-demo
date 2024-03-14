@@ -27,7 +27,7 @@ export interface InvoiceDraft {
   currencyType: string;
   exchangeCost: number;
   eta: string;
-  invoiceDate: string;
+  invoiceDate: number | Date;
   paymentDueDate: number | Date;
   paymentType: string;
   notes: string;

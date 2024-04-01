@@ -1,5 +1,5 @@
 <script setup>
-import notFound from '@/assets/images/not-found.png';
+import notFound from "@/assets/img/not-found.png";
 const error = useError();
 </script>
 
@@ -15,7 +15,10 @@ const error = useError();
         <strong>{{ error.message }}</strong>
       </p>
     </div>
-    <div v-else class="prose ml-40 grid w-full place-content-center text-dark-medium">
+    <div
+      v-else
+      class="prose ml-40 grid w-full place-content-center text-dark-medium"
+    >
       <img :src="notFound" alt="" class="mx-auto max-w-md" />
       <p>Al parecer esta pagina no existe, lo sentimos mucho!</p>
       <br />

@@ -1,22 +1,11 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
 export default defineEventHandler(async (event) => {
   const { invoice } = await readBody(event);
 
-  assertMethod(event, ['PUT']);
-
-  // Update invoice with prisma
-
-  // const items = await prisma.invoiceItem.updateMany({
-  // where: {
-  //     invoiceId: invoice.id
-  // },
-  // data: {
-  //     itemName:
-  // }
-  // })
+  assertMethod(event, ["PUT"]);
 
   const invoiceToUpdate = await prisma.invoice.update({
     where: {
@@ -30,7 +19,7 @@ export default defineEventHandler(async (event) => {
   if (!invoiceToUpdate) {
     throw createError({
       statusCode: 404,
-      statusMessage: 'Invoice not found',
+      statusMessage: "Invoice not found",
     });
   }
 

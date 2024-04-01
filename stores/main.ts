@@ -1,16 +1,16 @@
-import { defineStore } from 'pinia';
+import { defineStore } from "pinia";
 // import sessionStorage from '@vueuse/nuxt'
 
-import type { InvoiceOutline, InvoiceDraft } from '@/types/invoice';
+import type { InvoiceOutline, InvoiceDraft } from "@/types/invoice";
 // import { uid } from 'uid';
 
-export const useStore = defineStore('main', () => {
+export const useStore = defineStore("main", () => {
   // const { invoices } = await useInvoices();
   // const invoices = sessionStorage.getItem('/api/invoices');
   const dateOptions: Intl.DateTimeFormatOptions = {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
+    year: "numeric",
+    month: "short",
+    day: "numeric",
   };
 
   const isLoading = ref(false);
@@ -21,17 +21,19 @@ export const useStore = defineStore('main', () => {
   const editInvoice = ref(false);
   const contactData = ref<Contact[]>([]);
 
-  const modalType = ref('');
+  const openModal = ref(false);
+  const modalType = ref("");
 
   const openAlert = ref(false);
-  const alertMsg = ref('La cotizacion ha sido creada!');
-  const alertType = ref('');
+  const alertMsg = ref("La cotizacion ha sido creada!");
+  const alertType = ref("");
 
   const filterResults = ref(true);
   const filteredInvoices = reactive<InvoiceOutline[]>([]);
-  const searchQuery = ref('');
-  const filterQuery = ref('Todas');
-  const searchDate = ref('');
+  const searchQuery = ref("");
+  const filterQuery = ref("Todas");
+  const searchDate = ref<string>("");
+  // const searchDate = ref<number | Date>(new Date());
 
   const backBtn = ref<HTMLElement | null>(null);
 
@@ -50,6 +52,7 @@ export const useStore = defineStore('main', () => {
     invoicesLoaded,
     invoiceDialog,
     editInvoice,
+    openModal,
     modalType,
     backBtn,
   };

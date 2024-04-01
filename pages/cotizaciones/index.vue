@@ -1,135 +1,80 @@
 <script setup lang="ts">
-import type { InvoiceWithItems, InvoiceOutline } from "@/types/invoice";
-import noResults from "@/assets/img/no-results.svg";
+import type { InvoiceWithItems, SelectedStatus } from "@/types/invoice";
+// import { set } from "date-fns";
+// import { format } from "date-fns";
 
 const store = useStore();
 
-const {
-  isLoading,
-  isLoadingFull,
-  invoicesLoaded,
-  searchQuery,
-  filterQuery,
-  filterResults,
-  searchDate,
-} = storeToRefs(store);
+const { isLoading, invoicesLoaded, searchQuery } = storeToRefs(store);
 
-// const invoices = ref<InvoiceWithItems[]>([]);
 const { getInvoices } = await useInvoices();
 const invoices = await useFetchWithCache<InvoiceWithItems[]>("/api/invoices");
-const filteredInvoices = ref<InvoiceWithItems[]>([]);
 
-const dateOptions = { year: "numeric", month: "short", day: "numeric" };
+const filteredInvoices = computed(() => {
+  if (selectedStatus.value.length === 0 && searchQuery.value === "") {
+    // return the invoices but using pagination depending on the page value
+    return invoices.value.slice(
+      (page.value - 1) * pageCount.value,
+      page.value * pageCount.value,
+    );
+  }
 
-const searchSubmit = ref(false);
-const filterStatus = ref("Todas");
-const filterMenu = ref(true);
-function searchInvoices() {
-  searchSubmit.value = true;
-  filterMenu.value = false;
-  invoicesLoaded.value = false;
-  isLoading.value = true;
-
-  setTimeout(() => {
-    isLoading.value = false;
-    invoicesLoaded.value = true;
-  }, 1000);
-
-  if (filterQuery.value === "Todas" && !searchDate.value) {
-    filteredInvoices.value = invoices.value.filter((invoice) => {
-      return invoice.clientCompany
+  if (!selectedStatus.value.length) {
+    return invoices.value.filter((invoice) =>
+      invoice.clientCompany
         .toLowerCase()
-        .includes(searchQuery.value.toLowerCase());
-    });
-  } else if (filterQuery.value === "Todas") {
-    filteredInvoices.value = invoices.value.filter((invoice) => {
-      return (
-        invoice.invoiceDate ===
-          new Date(searchDate.value).toLocaleString("es-MX", {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          }) &&
-        invoice.clientCompany
-          .toLowerCase()
-          .includes(searchQuery.value.toLowerCase())
-      );
-    });
-  } else if (!searchDate.value) {
-    filteredInvoices.value = invoices.value.filter((invoice) => {
-      return (
-        invoice.clientCompany
-          .toLowerCase()
-          .includes(searchQuery.value.toLowerCase()) &&
-        invoice.status === filterQuery.value
-      );
-    });
-  } else {
-    filteredInvoices.value = invoices.value.filter((invoice) => {
-      return (
-        invoice.clientCompany
-          .toLowerCase()
-          .includes(searchQuery.value.toLowerCase()) &&
-        invoice.status === filterQuery.value &&
-        invoice.invoiceDate ===
-          new Date(searchDate.value).toLocaleString("es-MX", {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          })
-      );
-    });
+        .includes(searchQuery.value.toLowerCase()),
+    );
   }
 
-  if (filteredInvoices.value.length === 0) {
-    return (filterResults.value = false);
-  } else {
-    return (filterResults.value = true);
-  }
-}
-
-function searchCleared() {
-  filterMenu.value = true;
-  filterStatus.value = "Todas";
-}
+  return invoices.value.filter(
+    (invoice) =>
+      invoice.clientCompany
+        .toLowerCase()
+        .includes(searchQuery.value.toLowerCase()) &&
+      selectedStatus.value.some((status) => status.key === invoice.status),
+  );
+});
 
 const loadInvoices = ref(false);
 function refreshInvoices() {
-  loadInvoices.value = true;
-  isLoading.value = true;
-  invoicesLoaded.value = false;
-  filteredInvoices.value = [];
-  sessionStorage.clear();
+  setTimeout(() => {
+    loadInvoices.value = true;
+    isLoading.value = true;
+    invoicesLoaded.value = false;
 
-  setTimeout(async () => {
-    await getInvoices();
-    searchInvoices();
-    loadInvoices.value = false;
-    isLoading.value = false;
-    invoicesLoaded.value = true;
-  }, 2000);
+    sessionStorage.clear();
+
+    // filteredInvoices.value = [];
+
+    setTimeout(async () => {
+      await getInvoices();
+      // searchInvoices();
+
+      isLoading.value = false;
+      loadInvoices.value = false;
+      invoicesLoaded.value = true;
+    }, 1000);
+  }, 500);
 }
 
 isLoading.value = true;
 onMounted(() => {
-  // const { invoices: invoiceData } = await useInvoices();
-  // invoices.value = invoiceData.value;
-
   setTimeout(() => {
     isLoading.value = false;
     invoicesLoaded.value = true;
     // console.log(invoices.value);
   }, 1000);
-  if (filterQuery.value) {
-    searchInvoices();
-  }
+  // if (filterQuery.value) {
+  //   searchInvoices();
+  // }
   isLoading.value = false;
 });
 
 const tableColumns = [
   {
     key: "invId",
-    label: "ID",
+    label: "#",
     sortable: true,
   },
   {
@@ -159,191 +104,287 @@ const tableColumns = [
   },
 ];
 
-const statusBtnColor = (status: string) => {
-  return status === "Pagada"
-    ? "success"
-    : status === "Pendiente"
-      ? "warning"
-      : status === "Borrador"
-        ? "gray"
-        : "primary";
+// const status = ["Todas", "Vendida", "Pendiente", "Cancelada", "Borrador"];
+const status = [
+  {
+    key: "Borrador",
+    label: "Borrador",
+    value: false,
+  },
+  {
+    key: "Pendiente",
+    label: "Pendiente",
+    value: false,
+  },
+  {
+    key: "Vendida",
+    label: "Vendida",
+    value: true,
+  },
+  {
+    key: "Cancelada",
+    label: "Cancelada",
+    value: false,
+  },
+];
+
+const { contactData } = storeToRefs(store);
+const uniqueContacts = ref(
+  Array.from(new Set(contactData.value.map((a) => a.clientCompany))).map(
+    (clientCompany) => {
+      return contactData.value.find((a) => a.clientCompany === clientCompany);
+    },
+  ),
+);
+
+const selectedStatus = ref<SelectedStatus[]>([]);
+
+const filterByDate = ref("Todas");
+
+const resetFilters = () => {
+  searchQuery.value = "";
+  selectedStatus.value = [];
+};
+
+const pageTotal = computed(() => invoices.value.length);
+
+// Pagination
+const sort = ref({ column: "id", direction: "asc" as const });
+const page = ref(1);
+const pageCount = ref(10);
+
+const pageFrom = computed(() => (page.value - 1) * pageCount.value + 1);
+const pageTo = computed(() =>
+  Math.min(page.value * pageCount.value, pageTotal.value),
+);
+
+const dateOptions: Intl.DateTimeFormatOptions = {
+  year: "numeric",
+  month: "short",
+  day: "numeric",
 };
 </script>
 
 <template>
   <main>
-    <MainSection>
+    <MainSection class="pt-8">
       <template #heading>
         <section class="my-auto flex items-center justify-between">
           <AppHeading title="Cotizaciones" />
           <UButton
             to="/cotizaciones/nueva-cotizacion"
             icon="i-heroicons-plus-20-solid"
-            >Nueva cotizacion</UButton
+            >Nueva <span class="hidden md:inline">cotización</span></UButton
           >
         </section>
       </template>
 
       <template #content>
-        <div class="mx-auto w-full max-w-3xl">
-          <!-- Search box -->
-          <section class="flex w-full items-center justify-between">
-            <SearchBar @@search="searchInvoices()" @@clear="searchCleared" />
-          </section>
-
-          <!-- <section
-            class="text-primary focus:outline-primary dark:text-dark-primary relative mt-8 hidden w-full items-center justify-between rounded-2xl px-4 py-7 transition-all duration-300 lg:flex lg:px-8"
-          >
-            <p class="hidden w-[5%] lg:block lg:w-[10%]">ID</p>
-            <p class="hidden w-[20%] lg:block">Fecha</p>
-            <p class="hidden w-[30%] lg:block lg:w-[25%]">Empresa</p>
-            <p class="hidden w-[25%] lg:block">Total</p>
-            <p class="hidden w-[20%] lg:block">Status</p>
-            <Icon
-              class="text-secondary dark:text-dark-secondary absolute right-2 cursor-pointer text-2xl"
-              :class="{ 'animate-spin': loadInvoices }"
-              name="ri:refresh-line"
-              @click="refreshInvoices"
-            />
-          </section> -->
-
-          <section class="mt-4 flex flex-col items-center justify-center">
-            <Icon
-              class="text-primary cursor-pointer"
-              :class="{ 'animate-spin': loadInvoices }"
-              name="ri:refresh-line"
-              size="28"
-              @click="refreshInvoices"
-            />
-            <span class="text-xs text-dark-medium dark:text-light-medium"
-              >Sincronizar</span
+        <UCard class="mx-auto w-full">
+          <template #header>
+            <div
+              class="flex flex-col gap-3 py-3 md:flex-row md:items-center md:px-4"
             >
-          </section>
+              <h3>Filtrar</h3>
+              <UInput
+                v-model="searchQuery"
+                icon="i-heroicons-magnifying-glass-20-solid"
+                placeholder="Buscar..."
+              />
+
+              <section class="flex justify-between gap-3">
+                <USelectMenu
+                  v-model="selectedStatus"
+                  :options="status"
+                  multiple
+                  placeholder="Etapa"
+                  class="w-full md:w-40"
+                >
+                  <template #label>
+                    <span v-if="selectedStatus.length" class="truncate">{{
+                      `${selectedStatus.length} seleccionada${selectedStatus.length > 1 ? "s" : ""}`
+                    }}</span>
+                    <span v-else>Etapa</span>
+                  </template>
+                </USelectMenu>
+
+                <UButton
+                  icon="i-heroicons-funnel"
+                  color="gray"
+                  :disabled="searchQuery === '' && selectedStatus.length === 0"
+                  @click="resetFilters"
+                >
+                  Reset
+                </UButton>
+              </section>
+              <UButton
+                label="Sincronizar"
+                variant="outline"
+                @click="refreshInvoices"
+                icon="i-heroicons-arrow-path-20-solid"
+                :disabled="loadInvoices"
+                :loading="isLoading"
+                class="mx-auto mt-4 w-fit md:mx-0 md:mt-0 md:w-auto"
+              />
+            </div>
+          </template>
+
+          <UTable
+            :empty-state="{
+              icon: 'i-heroicons-document-text',
+              label: 'No hay cotizaciones',
+            }"
+            :columns="tableColumns"
+            :rows="filteredInvoices"
+            :loading="isLoading"
+            :loading-state="{
+              icon: 'i-heroicons-arrow-path-20-solid',
+              label: 'Cargando...',
+            }"
+            :sort-button="{
+              color: 'primary',
+              variant: 'ghost',
+              square: false,
+            }"
+            :ui="{
+              th: { color: 'text-primary' },
+              default: { sortButton: { color: 'primary' } },
+            }"
+            class="hidden w-full md:block"
+          >
+            <template #invoiceDate-data="{ row }">
+              {{
+                new Date(row.invoiceDate).toLocaleString("es-MX", dateOptions)
+              }}
+            </template>
+            <template #invoiceTotal-data="{ row }">
+              {{
+                new Intl.NumberFormat("es-MX", {
+                  style: "currency",
+                  currency: "MXN",
+                }).format(row.invoiceTotal)
+              }}
+            </template>
+            <template #status-data="{ row }">
+              <UBadge
+                :color="
+                  row.status === 'Vendida'
+                    ? 'green'
+                    : row.status === 'Pendiente'
+                      ? 'yellow'
+                      : row.status === 'Borrador'
+                        ? 'gray'
+                        : 'red'
+                "
+                variant="solid"
+                >{{ row.status }}</UBadge
+              >
+            </template>
+
+            <template #actions-data="{ row }">
+              <UButton
+                variant="ghost"
+                icon="i-heroicons-arrow-top-right-on-square"
+                :to="`/cotizaciones/${row.invId}`"
+                label="Abrir"
+              />
+            </template>
+          </UTable>
 
           <section
-            class="mt-4 flex flex-col items-center gap-10 lg:mt-8 lg:gap-4"
+            v-if="filteredInvoices.length"
+            class="flex flex-col gap-8 md:hidden"
           >
-            <UTable
-              :columns="tableColumns"
-              :rows="filteredInvoices"
-              :loading="isLoading"
-              :loading-state="{
-                icon: 'i-heroicons-arrow-path-20-solid',
-                label: 'Cargando...',
-              }"
-              :sort-button="{
-                color: 'primary',
-                variant: 'ghost',
-                square: false,
-              }"
-              class="w-full"
-              :ui="{
-                th: { color: 'text-primary' },
-                default: { sortButton: { color: 'primary' } },
-              }"
+            <NuxtLink
+              v-for="invoice in filteredInvoices"
+              :to="`/cotizaciones/${invoice.invId}`"
             >
-              <template #invoiceTotal-data="{ row }">
-                {{
-                  new Intl.NumberFormat("es-MX", {
-                    style: "currency",
-                    currency: "MXN",
-                  }).format(row.invoiceTotal)
-                }}
-              </template>
-              <template #status-data="{ row }">
-                <UBadge
-                  :color="
-                    row.status === 'Vendida'
-                      ? 'green'
-                      : row.status === 'Pendiente'
-                        ? 'yellow'
-                        : row.status === 'Borrador'
-                          ? 'gray'
-                          : 'red'
-                  "
-                  variant="solid"
-                  >{{ row.status }}</UBadge
-                >
-              </template>
+              <UCard :ui="{ background: 'dark:bg-dark-medium' }">
+                <template #header>
+                  <section class="flex items-center justify-between">
+                    <span class="text-primary"> #{{ invoice.invId }} </span>
+                    <span class="text-xs">
+                      {{
+                        new Date(invoice.invoiceDate).toLocaleString(
+                          "es-MX",
+                          dateOptions,
+                        )
+                      }}
+                    </span>
+                  </section>
+                </template>
+                <div class="flex items-center justify-between py-3">
+                  <h3>{{ invoice.clientCompany }}</h3>
+                  <UBadge
+                    :color="
+                      invoice.status === 'Vendida'
+                        ? 'green'
+                        : invoice.status === 'Pendiente'
+                          ? 'yellow'
+                          : invoice.status === 'Borrador'
+                            ? 'gray'
+                            : 'red'
+                    "
+                    variant="solid"
+                    >{{ invoice.status }}</UBadge
+                  >
+                </div>
 
-              <template #actions-data="{ row }">
-                <UButton
-                  variant="ghost"
-                  icon="i-heroicons-arrow-top-right-on-square"
-                  :to="`/cotizaciones/${row.invId}`"
-                  label="Abrir"
-                />
-              </template>
-            </UTable>
+                <template #footer>
+                  <section class="flex items-center justify-end">
+                    <span class="text-primary font-bold">
+                      {{
+                        new Intl.NumberFormat("es-MX", {
+                          style: "currency",
+                          currency: "MXN",
+                        }).format(invoice.invoiceTotal)
+                      }}
+                    </span>
+                  </section>
+                </template>
+              </UCard>
+            </NuxtLink>
           </section>
-          <!-- <TransitionGroup
-            v-if="invoicesLoaded && filterResults && invoices"
-            tag="section"
-            class="mt-4 flex flex-col items-center gap-10 lg:mt-8 lg:gap-4"
-            appear
-            name="slide-up"
-          >
-            <UTable
-              :columns="tableColumns"
-              :rows="filteredInvoices"
-              :sort-button="{
-                color: 'primary',
-                variant: 'ghost',
 
-                square: false,
-              }"
-              class="w-full"
-              :ui="{
-                th: { color: 'text-primary' },
-                default: { sortButton: { color: 'primary' } },
-              }"
+          <section v-else class="flex flex-col items-center gap-2 md:hidden">
+            <Icon name="heroicons:document-text" size="32" color="gray" />
+            <span>No hay cotizaciones</span>
+          </section>
+
+          <template #footer>
+            <div
+              class="flex flex-wrap items-center justify-between"
+              v-if="pageTotal > 0"
             >
-              <template #invoiceTotal-data="{ row }">
-                {{
-                  new Intl.NumberFormat("es-MX", {
-                    style: "currency",
-                    currency: "MXN",
-                  }).format(row.invoiceTotal)
-                }}
-              </template>
-              <template #status-data="{ row }">
-                <UButton :color="() => statusBtnColor(row.status)" disabled>{{
-                  row.status
-                }}</UButton>
-              </template>
+              <div>
+                <span class="text-sm leading-5">
+                  Mostrando
+                  <span class="font-medium">{{ pageFrom }}</span>
+                  al
+                  <span class="font-medium">{{ pageTo }}</span>
+                  de
+                  <span class="font-medium">{{ pageTotal }}</span>
+                  resultados
+                </span>
+              </div>
 
-              <template #actions-data="{ row }">
-                <UButton
-                  variant="ghost"
-                  icon="i-heroicons-arrow-top-right-on-square"
-                />
-              </template>
-            </UTable>
-          </TransitionGroup> -->
-
-          <!-- No filter results -->
-          <div
-            v-if="
-              filteredInvoices.length === 0 &&
-              invoices.length > 0 &&
-              !isLoading &&
-              !filterResults
-            "
-            class="mt-16 w-full text-center"
-          >
-            <img :src="noResults" class="mx-auto mb-8 w-32" alt="" />
-            <span class="text-dark-medium dark:text-light-medium"
-              >No se encontraron resultados</span
-            >
-          </div>
-
-          <!-- <LoadingSpinner class="pt-16" v-if="isLoading" /> -->
-        </div>
-
-        <!-- If no invoices -->
-        <NoInvoices
-          v-if="invoices.length === 0 && invoicesLoaded && !isLoading"
-        />
+              <UPagination
+                v-model="page"
+                :page-count="pageCount"
+                :total="pageTotal"
+                :ui="{
+                  wrapper: 'flex items-center gap-1',
+                  rounded: '!rounded-full min-w-[32px] justify-center',
+                  default: {
+                    activeButton: {
+                      variant: 'outline',
+                    },
+                  },
+                }"
+              />
+            </div>
+          </template>
+        </UCard>
       </template>
     </MainSection>
   </main>

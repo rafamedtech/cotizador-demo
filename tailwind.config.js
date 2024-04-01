@@ -18,7 +18,7 @@ module.exports = {
         },
       },
       boxShadow: {
-        pinterest: "rgb(0 0 0 / 10%) 0px 5px 20px 0px",
+        pinterest: "rgb(0 0 0 / 10%) 0px 5px 10px 0px",
       },
       colors: {
         light: {

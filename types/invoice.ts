@@ -48,3 +48,9 @@ export interface InvoiceItems {
   price: number;
   total: number;
 }
+
+export type SelectedStatus = {
+  key: string;
+  label: string;
+  value: boolean;
+};

@@ -45,9 +45,10 @@ export const useInvoice = async (id?: string) => {
 
       setTimeout(() => {
         isLoading.value = false;
-        openAlert.value = true;
-        alertType.value = "success";
-        alertMsg.value = "La cotización ha sido creada!";
+
+        // openAlert.value = true;
+        // alertType.value = "success";
+        // alertMsg.value = "La cotización ha sido creada!";
       }, 1000);
 
       setTimeout(() => {

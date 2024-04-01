@@ -85,19 +85,6 @@ function toggleSearch() {
   // search.value.focus();
 }
 
-const people = [
-  "Wade Cooper",
-  "Arlene Mccoy",
-  "Devon Webb",
-  "Tom Cook",
-  "Tanya Fox",
-  "Hellen Schmidt",
-  "Caroline Schultz",
-  "Mason Heaney",
-  "Claudie Smitham",
-  "Emil Schaefer",
-];
-
 const status = ["Todas", "Vendida", "Pendiente", "Cancelada", "Borrador"];
 
 const selected = ref();
@@ -115,12 +102,12 @@ const selected = ref();
           ? 'heroicons:chevron-up'
           : 'heroicons:adjustments-horizontal'
       "
-      size="28"
+      size="24"
       class="absolute right-4 top-4 cursor-pointer text-dark-medium dark:text-light-medium"
       @click="toggleSearch"
     />
     <div class="flex w-full flex-col gap-2">
-      <label class="label">
+      <!-- <label class="label">
         <span class="label-text text-primary dark:text-dark-primary"
           >Buscar por cliente</span
         >
@@ -129,16 +116,6 @@ const selected = ref();
         class="dropdown-bottom dropdown-end form-control dropdown relative w-full"
       >
         <div class="relative">
-          <!-- <UInput
-            ref="search"
-            v-model="searchQuery"
-            @focus="contactsModal = true"
-            @input="filterContacts"
-            @keydown.esc="clearSearch"
-            autocomplete="off"
-            type="text"
-            placeholder="Escribe nombre del cliente..."
-          /> -->
           <USelectMenu
             searchable
             searchable-placeholder="Escribe nombre del cliente..."
@@ -160,31 +137,36 @@ const selected = ref();
           />
         </div>
 
-        <!-- <ContactsAutocomplete
-          v-if="filteredContacts.length > 0 && contactsModal"
-          :contacts="filteredContacts"
-        /> -->
-      </div>
+
+      </div> -->
+      <UFormGroup label="Buscar por cliente">
+        <USelectMenu
+          searchable
+          searchable-placeholder="Escribe nombre del cliente..."
+          placeholder="Elige un cliente"
+          v-model="searchQuery"
+          :options="filteredContacts"
+          option-attribute="clientCompany"
+        >
+          <template #empty> Sin resultados </template>
+          <template #option-empty="{ query }">
+            No se encontró <q>{{ query }}</q>
+          </template>
+        </USelectMenu>
+      </UFormGroup>
       <!-- Search Details -->
       <Transition name="slide">
         <div
           v-if="filterDetails"
           class="mt-2 w-full flex-col gap-x-4 lg:grid lg:grid-cols-2"
         >
-          <div
-            class="form-control mb-2 w-full flex-col justify-center gap-1 lg:mb-0"
-          >
-            <label class="label m-0">
-              <span class="label-text text-primary dark:text-dark-primary"
-                >Filtrar etapa</span
-              >
-            </label>
+          <!-- <UFormGroup label="Filtrar etapa">
             <USelect v-model="filterQuery" :options="status"> </USelect>
-          </div>
-          <div class="w-full flex-col justify-center">
-            <label>
-              <span class="text-primary">Fecha</span>
-            </label>
+          </UFormGroup> -->
+          <UFormGroup label="Etapa">
+            <USelectMenu v-model="filterQuery" :options="status"> </USelectMenu>
+          </UFormGroup>
+          <UFormGroup label="Fecha">
             <UPopover :popper="{ placement: 'bottom-start' }">
               <UButton
                 icon="i-heroicons-calendar-days-20-solid"
@@ -197,10 +179,10 @@ const selected = ref();
                 <DatePicker v-model="date" @close="close" />
               </template>
             </UPopover>
-          </div>
+          </UFormGroup>
         </div>
       </Transition>
-      <!--  -->
+
       <section
         class="mt-4 flex w-full justify-end gap-2 lg:w-1/2 lg:items-end lg:self-end lg:pl-2"
       >

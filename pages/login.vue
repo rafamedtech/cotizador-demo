@@ -1,9 +1,8 @@
-<script setup>
-import useVuelidate from '@vuelidate/core';
-// import { required, email, minLength, helpers } from '@vuelidate/validators';
-
+<script setup lang="ts">
+import type { FormError, FormSubmitEvent } from "#ui/types";
 const user = useSupabaseUser();
-const { userLogin } = useAuthStore();
+// const { userLogin } = useAuthStore();
+const { userLogin } = useAuth();
 
 const store = useStore();
 const { isLoading, isLoadingFull } = storeToRefs(store);
@@ -12,44 +11,38 @@ onBeforeMount(() => {
 });
 
 const formData = reactive({
-  email: '',
-  password: '',
+  email: "",
+  password: "",
 });
 
-// const rules = computed(() => {
-//   return {
-//     email: {
-//       required: helpers.withMessage('Este campo es requerido', required),
-//       email: helpers.withMessage('Formato inválido', email),
-//     },
-//     password: {
-//       required: helpers.withMessage('Este campo es requerido', required),
-//       minLength: helpers.withMessage(
-//         'La contraseña debe tener al menos 6 caracteres',
-//         minLength(6)
-//       ),
-//     },
-//   };
-// });
-// const v$ = useVuelidate(rules, formData);
+const validate = (state: any): FormError[] => {
+  const errors = [];
 
-const submitForm = async () => {
-  // v$.value.$validate();
-  // if (v$.value.$error) {
-  //   return;
-  // }
+  if (!state.email)
+    errors.push({ path: "email", message: "Este campo es obligatorio" });
+  if (!state.password)
+    errors.push({ path: "password", message: "Este campo es obligatorio" });
+
+  return errors;
+};
+
+const submitForm = (event: FormSubmitEvent<any>) => {
   isLoading.value = true;
-  await userLogin(formData);
+
+  setTimeout(async () => {
+    await userLogin(formData);
+    isLoading.value = false;
+  }, 1000);
 };
 
 watchEffect(async () => {
   if (user.value) {
-    await navigateTo('/', { replace: true });
+    await navigateTo("/", { replace: true });
   }
 });
 
 useHead({
-  title: 'Iniciar sesión | Render Cotizador',
+  title: "Iniciar sesión | Cotizador",
 });
 
 definePageMeta({
@@ -58,61 +51,58 @@ definePageMeta({
 </script>
 
 <template>
-  <Transition name="slide" appear>
-    <main class="min-h-screen overflow-x-hidden bg-light-medium dark:bg-dark-medium">
-      <section
-        class="container mx-auto flex flex-col flex-wrap items-center justify-center px-5 py-24 text-gray-400 lg:gap-8"
+  <main class="min-h-screen overflow-x-hidden dark:bg-dark-medium">
+    <section
+      class="mx-auto flex flex-col flex-wrap items-center justify-center px-5 py-24 text-gray-400 lg:gap-8"
+    >
+      <UForm
+        @submit="submitForm"
+        :state="formData"
+        :validate="validate"
+        :validate-on="['submit']"
+        class="bg-opacity-50 mt-10 flex w-full max-w-sm flex-col items-center rounded-[20px] border border-light-strong bg-white p-8 dark:border-dark-medium dark:bg-dark-strong md:mt-0"
       >
-        <form
-          @submit.prevent="submitForm"
-          class="bg-opacity-50 mt-10 flex w-full flex-col items-center rounded-[20px] border border-light-strong bg-white p-8 dark:border-dark-medium dark:bg-dark-strong md:mt-0 md:w-1/2 lg:flex-row lg:justify-around"
-        >
-          <figure class="rounded-xl p-4">
-            <!-- <img src="@/assets/images/logo-rosa-cropped.png" alt="" class="w-20 lg:w-32" /> -->
-          </figure>
-          <div class="flex w-full flex-col lg:w-auto">
-            <h2
-              class="mx-auto mb-5 w-fit border-b-2 border-primary text-lg font-medium text-dark-medium dark:border-primary/50 dark:text-light-strong"
-            >
-              Iniciar sesión
-            </h2>
-            <div class="relative mb-4">
-              <label for="full-name" class="text-xs leading-7 text-gray-400">Email</label>
-              <div class="relative">
-                <input
-                  v-model="formData.email"
-                  type="text"
-                  id="email"
-                  name="email"
-                  placeholder="Ej. correo@ejemplo.com"
-                  class="input-primary input w-full bg-light-medium px-3 py-1 text-base leading-8 text-dark-medium outline-none transition-all duration-500 focus:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary dark:bg-dark-medium dark:text-light-strong"
-                  autocomplete="off"
-                />
-              </div>
-            </div>
+        <Logo />
+        <figure class="rounded-xl p-4">
+          <!-- <img src="@/assets/images/logo-rosa-cropped.png" alt="" class="w-20 lg:w-32" /> -->
+        </figure>
+        <div class="flex w-full flex-col">
+          <h2
+            class="border-primary mx-auto mb-5 border-b-2 text-lg font-medium text-dark-medium dark:text-light-strong"
+          >
+            Iniciar sesión
+          </h2>
 
-            <div class="relative mb-4">
-              <label for="password" class="text-xs leading-7 text-gray-400">Contraseña</label>
-              <div class="relative">
-                <input
-                  id="password"
-                  v-model="formData.password"
-                  name="password"
-                  type="password"
-                  class="input-primary input w-full bg-light-medium px-3 py-1 text-base leading-8 text-dark-medium outline-none transition-all duration-500 focus:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary dark:bg-dark-medium dark:text-light-strong"
-                />
-              </div>
-            </div>
+          <section class="mb-4 flex flex-col gap-4">
+            <UFormGroup label="Email" name="email">
+              <UInput
+                v-model="formData.email"
+                type="text"
+                id="email"
+                placeholder="Ej. correo@ejemplo.com"
+                autocomplete="off"
+                size="lg"
+              />
+            </UFormGroup>
 
-            <button
-              class="btn mx-auto rounded-lg border-0 bg-primary px-8 py-2 font-sans font-bold text-white hover:bg-secondary focus:outline-white"
-            >
-              <span v-if="!isLoading">Enviar</span>
-              <!-- <LoadingSpinner v-else /> -->
-            </button>
-          </div>
-        </form>
-      </section>
-    </main>
-  </Transition>
+            <UFormGroup label="Contraseña" name="password">
+              <UInput
+                v-model="formData.password"
+                type="password"
+                id="password"
+                size="lg"
+              />
+            </UFormGroup>
+          </section>
+
+          <UButton
+            :loading="isLoading"
+            label="Iniciar sesión"
+            type="submit"
+            class="mx-auto w-fit"
+          />
+        </div>
+      </UForm>
+    </section>
+  </main>
 </template>

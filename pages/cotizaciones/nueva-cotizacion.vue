@@ -1,34 +1,28 @@
 <script lang="ts" setup>
-import { Modal } from "@/types/modal";
+import { DiscardModal } from "#components";
 
-const dateOptions: Intl.DateTimeFormatOptions = {
-  year: "numeric",
-  month: "short",
-  day: "numeric",
-};
+// const store = useStore();
 
-const store = useStore();
+// const { isLoadingFull } = storeToRefs(store);
+const { getInvoices } = await useInvoices();
 
-const { backBtn, isLoadingFull } = storeToRefs(store);
-
-onBeforeMount(() => {
-  isLoadingFull.value = false;
+onBeforeMount(async () => {
+  // isLoadingFull.value = false;
+  await getInvoices();
 });
 
+const modal = useModal();
 function discardInvoice() {
-  store.$patch({
-    modalType: Modal.Discard,
-  });
-  backBtn.value?.click();
+  modal.open(DiscardModal, {});
 }
 
 useHead({
   title: "Nueva Cotización | Render Cotizador",
 });
 
-// definePageMeta({
-//   middleware: ['auth'],
-// });
+definePageMeta({
+  middleware: ["auth"],
+});
 </script>
 
 <template>
@@ -39,15 +33,12 @@ useHead({
       <UButton
         icon="i-heroicons-arrow-left"
         type="button"
-        @click="discardInvoice"
         variant="ghost"
         color="gray"
         class="z-50 flex items-center gap-2 self-start"
-      >
-        <label ref="backBtn" for="my-modal-6" class="hidden"></label>
-
-        <span class="text-xs">Regresar</span>
-      </UButton>
+        label="Regresar"
+        @click="discardInvoice"
+      />
 
       <InvoiceForm />
     </section>

@@ -9,12 +9,8 @@ const { navLinks } = useNav();
       container: 'justify-between w-full',
       inner: 'flex-1 hover:text-white',
       before: 'px-2',
-      active:
-        'text-white px-2 active:before:bg-gray-800 hover:before:bg-gray-800 focus:before:bg-gray-800',
-      inactive: 'hover:text-white text-gray-400 hover:before:bg-gray-800/50',
-      icon: { active: 'text-gray-200', inactive: 'text-gray-500' },
     }"
     :links="navLinks"
-    class="fixed z-[999] bottom-0 bg-[#1a1a1a]"
+    class="fixed bottom-0 z-[49] border-t bg-white dark:border-none dark:bg-dark-strong"
   />
 </template>

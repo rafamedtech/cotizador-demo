@@ -1,18 +1,18 @@
 <script setup lang="ts">
-// const store = useStore();
-// const { loadingScreen } = storeToRefs(store);
+const user = useSupabaseUser();
 </script>
 
 <template>
-  <section class="relative transition-all">
+  <div class="dark:bg-[#222222] md:px-4">
+    <Topbar v-if="user" />
+
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
 
-    <!-- <Modal />
-    <EventModal />
-    <FullscreenEvents />
+    <BottomNavbar v-if="user" class="lg:hidden" />
 
-    <Loader v-if="loadingScreen" /> -->
-  </section>
+    <UModals />
+    <UNotifications />
+  </div>
 </template>

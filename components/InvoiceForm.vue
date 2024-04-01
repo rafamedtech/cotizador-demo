@@ -1,5 +1,6 @@
-<script lang="ts" setup>
-// Depencency imports
+<script setup lang="ts">
+import { DiscardModal } from "#components";
+import type { FormError, FormSubmitEvent } from "#ui/types";
 import useVuelidate from "@vuelidate/core";
 import {
   required,
@@ -38,7 +39,7 @@ const invoiceTitle = computed(() => {
   return props.edit ? "Editar Cotización" : "Nueva Cotización";
 });
 
-const initialInvoice = ref({ invId: 300 });
+const initialInvoice = ref({ invId: 0 });
 const lastInvoice = ref(invoices.value?.[0] ?? initialInvoice.value);
 // console.log(lastInvoice.value);
 
@@ -224,6 +225,9 @@ function changeStatus(status: string) {
 }
 
 function addNewInvoiceItem() {
+  if (invoiceObject.invoiceItems.length === 5) {
+    return;
+  }
   invoiceObject.invoiceItems.push({
     itemId: uid(2),
     itemName: "",
@@ -279,42 +283,41 @@ async function uploadInvoice() {
   });
 }
 
+const toast = useToast();
 const buttonLoading = ref(false);
-async function onSubmit() {
+async function onSubmit(event: FormSubmitEvent<any>) {
   buttonLoading.value = true;
-  // console.log({ ...company.value, ...invoiceObject });
-  // console.log(invoiceObject);
-  // v$.value.$validate();
-  if (!v$.value.$error) {
-    // if (props.edit) {
-    //   const { updateInvoiceOnDb } = await useInvoice();
-    //   // updateInvoice
-    //   await updateInvoiceOnDb({
-    //     ...invoiceObject,
-    //     invoiceSubtotal: invoiceSubtotal.value,
-    //     invoiceTax: invoiceTax.value,
-    //     invoiceTotal: invoiceTotal.value,
-    //   });
-    //   // router.back();
-    //   return navigateTo(`/cotizacion/${invoiceObject.invId}`);
-    // }
-    setTimeout(async () => {
-      await uploadInvoice();
-      buttonLoading.value = false;
-      await navigateTo("/cotizaciones");
-    }, 1000);
-  } else {
-    buttonLoading.value = false;
-    window.scrollTo({ top: 0, behavior: "smooth" });
+
+  if (props.edit) {
+    const { updateInvoiceOnDb } = await useInvoice();
+    // updateInvoice
+
+    sessionStorage.clear();
+    await updateInvoiceOnDb({
+      ...invoiceObject,
+      invoiceSubtotal: invoiceSubtotal.value,
+      invoiceTax: invoiceTax.value,
+      invoiceTotal: invoiceTotal.value,
+    });
+    // router.back();
+
+    toast.add({ title: "Cotización actualizada" });
+    return navigateTo(`/cotizaciones/${invoiceObject.invId}`);
   }
+  setTimeout(async () => {
+    await uploadInvoice();
+    buttonLoading.value = false;
+    toast.add({ title: "Cotización creada" });
+    await navigateTo(`/cotizaciones/${invoiceObject.invId}`);
+  }, 1000);
 }
 
+const modal = useModal();
 function discardInvoice() {
-  modalType.value = Modal.Discard;
-  backBtn.value?.click();
+  modal.open(DiscardModal, {});
 }
 
-const invoiceStatus = ["Borrador", "Pendiente", "Vendida", "Cancelada"];
+const options2 = ["Borrador", "Pendiente", "Vendida", "Cancelada"];
 
 const options = [
   { id: 1, name: "Borrador", color: "gray" },
@@ -323,8 +326,42 @@ const options = [
   { id: 4, name: "Cancelada", color: "red" },
 ];
 
-const company = reactive({
-  clientCompany: "",
+const validate = (state: any): FormError[] => {
+  const errors = [];
+  if (state.clientCompany === "Elige un cliente")
+    errors.push({
+      path: "clientCompany",
+      message: "Este campo es obligatorio",
+    });
+  if (!state.clientName)
+    errors.push({ path: "clientName", message: "Este campo es obligatorio" });
+  if (!state.clientEmail)
+    errors.push({ path: "clientEmail", message: "Este campo es obligatorio" });
+  if (!state.eta)
+    errors.push({ path: "eta", message: "Este campo es obligatorio" });
+
+  state.invoiceItems.forEach((item: any, index: any) => {
+    if (!item.itemName)
+      errors.push({
+        path: `invoiceItems[${index}].itemName`,
+        message: "Este campo es obligatorio",
+      });
+  });
+
+  return errors;
+};
+
+const submitButtonLabel = computed(() => {
+  if (props.edit) {
+    return "Actualizar Cotización";
+  }
+  if (props.edit && buttonLoading.value) {
+    return "Actualizando...";
+  }
+  if (buttonLoading.value) {
+    return "Creando...";
+  }
+  return "Crear Cotización";
 });
 </script>
 
@@ -332,104 +369,99 @@ const company = reactive({
   <div
     class="container relative h-full rounded-xl border border-gray-200 bg-white p-4 transition-all dark:border-dark-medium dark:bg-dark-strong lg:w-full lg:max-w-4xl"
   >
-    <form @submit.prevent="onSubmit" class="relative w-full">
+    <UForm
+      :validate="validate"
+      :validate-on="['submit']"
+      :state="invoiceObject"
+      @submit="onSubmit"
+      class="relative w-full"
+    >
       <h1
         class="text-primary w-fit border-b-2 border-gray-800 text-2xl dark:border-gray-200"
       >
         {{ invoiceTitle }}
       </h1>
 
-      <div class="my-8 flex flex-col">
+      <div class="mb-2 mt-8 flex flex-col">
         <h4
           class="dark:text-dark-primary border-primary mb-2 w-fit border-b text-lg font-bold text-gray-800 dark:text-gray-200"
         >
           Datos generales
         </h4>
 
-        <div class="flex w-full gap-2">
+        <div class="flex w-full gap-4">
           <!-- Empresa -->
-          <div class="relative mb-4 w-1/2 lg:w-3/4">
-            <label class="label">
-              <span class="label-text text-dark-strong dark:text-light-medium"
-                >Empresa<span class="text-red-500">*</span></span
-              >
-            </label>
-            <div>
-              <USelectMenu
-                clear-search-on-close
-                searchable
-                searchable-placeholder="Escribe nombre del cliente..."
-                placeholder="Elige un cliente"
-                :options="filteredContacts"
-                creatable
-                option-attribute="clientCompany"
-                value-attribute="clientCompany"
-                v-model="invoiceObject.clientCompany"
-              >
-                <template #empty> Sin resultados </template>
+          <UFormGroup
+            class="mb-4 w-1/2 lg:w-3/4"
+            label="Empresa"
+            name="clientCompany"
+          >
+            <USelectMenu
+              clear-search-on-close
+              searchable
+              searchable-placeholder="Escribe nombre del cliente..."
+              placeholder="Elige un cliente"
+              :options="filteredContacts"
+              creatable
+              option-attribute="clientCompany"
+              value-attribute="clientCompany"
+              v-model="invoiceObject.clientCompany"
+              class="border-primary"
+            >
+              <template #empty> Sin resultados </template>
 
-                <template #option-empty="{ query }">
-                  No se encontró <q>{{ query }}</q>
-                </template>
+              <template #option-empty="{ query }">
+                No se encontró <q>{{ query }}</q>
+              </template>
 
-                <template #option-create="{ option: company }">
-                  <span class="flex-shrink-0">Crear nuevo:</span>
+              <template #option-create="{ option: company }">
+                <span class="flex-shrink-0">Crear nuevo:</span>
 
-                  <span
-                    class="text-primary block truncate"
-                    @click="createContact(company)"
-                    >{{ company }}</span
-                  >
-                </template>
-              </USelectMenu>
-            </div>
-          </div>
-          <div class="relative mb-4 w-1/2 lg:w-1/3">
-            <label class="label">
-              <span class="label-text text-dark-strong dark:text-light-medium"
-                >Etapa</span
-              >
-            </label>
-            <div class="relative w-full">
-              <USelectMenu
-                v-model="invoiceObject.status"
-                :options="options"
-                option-attribute="name"
-              >
-                <template #option="{ option }">
-                  <span
-                    class="h-2 w-2 rounded-full"
-                    :class="`bg-${option.color}-500 dark:bg-${option.color}-400`"
-                  ></span>
-                  <span class="truncate">{{ option.name }}</span>
-                </template>
-              </USelectMenu>
-            </div>
-          </div>
+                <span class="block truncate" @click="createContact(company)">{{
+                  company
+                }}</span>
+              </template>
+            </USelectMenu>
+          </UFormGroup>
+
+          <UFormGroup label="Etapa" class="w-1/2 lg:w-1/3">
+            <USelectMenu
+              v-model="invoiceObject.status"
+              :options="options"
+              option-attribute="name"
+              value-attribute="name"
+            >
+              <template #option="{ option }">
+                <span
+                  class="h-2 w-2 rounded-full"
+                  :class="`bg-${option.color}-500 dark:bg-${option.color}-400`"
+                ></span>
+                <span class="truncate">{{ option.name }}</span>
+              </template>
+            </USelectMenu>
+          </UFormGroup>
         </div>
 
         <div class="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-3">
-          <div class="w-full flex-col justify-center">
-            <label>
-              <span>Fecha</span>
-            </label>
+          <UFormGroup label="Fecha" name="invoiceDate">
             <UPopover :popper="{ placement: 'bottom-start' }">
               <UButton
                 icon="i-heroicons-calendar-days-20-solid"
-                :label="format(date, 'd MMM, yyy')"
+                :label="format(invoiceObject.invoiceDate, 'd MMM, yyy')"
                 color="gray"
                 class="w-full"
               />
 
               <template #panel="{ close }">
-                <DatePicker v-model="date" @close="close" />
+                <DatePicker
+                  v-model="invoiceObject.invoiceDate"
+                  @close="close"
+                />
               </template>
             </UPopover>
-          </div>
-          <div class="w-full flex-col justify-center">
-            <label class="m-0">
-              <span>Fecha de vencimiento</span>
-            </label>
+          </UFormGroup>
+
+          <UFormGroup label="Fecha de vencimiento" name="paymentDueDate">
             <UPopover :popper="{ placement: 'bottom-start' }">
               <UButton
                 icon="i-heroicons-calendar-days-20-solid"
@@ -445,13 +477,11 @@ const company = reactive({
                 />
               </template>
             </UPopover>
-          </div>
-          <div class="w-full flex-col justify-center">
-            <label class="m-0">
-              <span>Tiempo de entrega</span>
-            </label>
+          </UFormGroup>
+
+          <UFormGroup label="Tiempo de entrega" name="eta">
             <UInput v-model="invoiceObject.eta" />
-          </div>
+          </UFormGroup>
         </div>
 
         <!-- Currency -->
@@ -508,25 +538,19 @@ const company = reactive({
             </h5>
 
             <section class="flex flex-col gap-2">
-              <div class="flex flex-col">
-                <label for="currencyType" class="dark:text-light-strong"
-                  >Nombre</label
-                >
+              <UFormGroup label="Nombre" name="clientName">
                 <UInput
                   v-model="invoiceObject.clientName"
                   placeholder="Escribe aquí..."
                 />
-              </div>
-              <div class="flex flex-col">
-                <label for="currencyType" class="dark:text-light-strong"
-                  >Correo electrónico</label
-                >
+              </UFormGroup>
+              <UFormGroup label="Correo electrónico" name="clientEmail">
                 <UInput
                   v-model="invoiceObject.clientEmail"
                   type="email"
                   placeholder="Escribe aquí..."
                 />
-              </div>
+              </UFormGroup>
             </section>
           </div>
           <div class="mb-2 w-1/2">
@@ -535,25 +559,19 @@ const company = reactive({
             </h5>
 
             <section class="flex flex-col gap-2">
-              <div class="flex flex-col">
-                <label for="currencyType" class="dark:text-light-strong"
-                  >Nombre</label
-                >
+              <UFormGroup label="Nombre" name="clientName2">
                 <UInput
                   v-model="invoiceObject.clientName2"
                   placeholder="Escribe aquí..."
                 />
-              </div>
-              <div class="flex flex-col">
-                <label for="currencyType" class="dark:text-light-strong"
-                  >Correo electrónico</label
-                >
+              </UFormGroup>
+              <UFormGroup label="Correo electrónico" name="clientEmail2">
                 <UInput
                   v-model="invoiceObject.clientEmail2"
                   type="email"
                   placeholder="Escribe aquí..."
                 />
-              </div>
+              </UFormGroup>
             </section>
           </div>
         </div>
@@ -588,17 +606,17 @@ const company = reactive({
               >
                 <tr
                   class="table-items relative flex items-start gap-2 lg:gap-4"
-                  v-for="item in invoiceObject.invoiceItems"
+                  v-for="(item, index) in invoiceObject.invoiceItems"
                   :key="item.itemId"
                 >
                   <td class="w-3/12">
-                    <div class="form-control">
+                    <UFormGroup :name="`invoiceItems[${index}].itemName`">
                       <UInput
                         type="text"
                         v-model.trim="item.itemName"
                         placeholder="Escribe aqui..."
                       />
-                    </div>
+                    </UFormGroup>
                   </td>
                   <td class="relative w-4/12">
                     <div class="form-control relative">
@@ -606,7 +624,7 @@ const company = reactive({
                         type="text"
                         placeholder="Escribe aqui..."
                         :style="{ paddingRight: '2rem' }"
-                        v-model="item.itemDescription"
+                        v-model.trim="item.itemDescription"
                       />
                     </div>
                   </td>
@@ -674,75 +692,45 @@ const company = reactive({
                   name="list"
                   appear
                 >
-                  <div
-                    class="card bg-base-100 relative border border-light-strong shadow-pinterest dark:border-dark-medium dark:bg-dark-strong"
+                  <UCard
+                    class="relative"
                     v-for="item in invoiceObject.invoiceItems"
                     :key="item.itemId"
                   >
-                    <div class="card-body p-4 text-sm">
-                      <div class="form-control">
-                        <label class="input-group">
-                          <span
-                            class="w-36 bg-light-strong text-dark-medium dark:bg-dark-medium dark:text-light-medium"
-                            >Nombre</span
-                          >
-                          <input
-                            type="text"
-                            placeholder="Descripción del artículo"
-                            class="input-bordered input w-full dark:border-dark-strong"
-                            v-model.trim="item.itemName"
-                          />
-                        </label>
-                      </div>
-                      <div>
-                        <label>
-                          <span
-                            class="w-36 bg-light-strong text-dark-medium dark:bg-dark-medium dark:text-light-medium"
-                            >Descripción</span
-                          >
-                          <input
-                            type="text"
-                            placeholder="Descripción del artículo"
-                            class="input-bordered input w-full dark:border-dark-strong"
-                            v-model.trim="item.itemDescription"
-                          />
-                        </label>
-                      </div>
+                    <div class="flex flex-col gap-2">
+                      <UFormGroup label="Nombre">
+                        <UInput
+                          v-model.trim="item.itemName"
+                          placeholder="Escribe aquí"
+                        />
+                      </UFormGroup>
 
-                      <div>
-                        <label>
-                          <span
-                            class="w-36 bg-light-strong text-dark-medium dark:bg-dark-medium dark:text-light-medium"
-                            >Cantidad</span
-                          >
-                          <UInput
-                            type="text"
-                            class="input-bordered input w-full dark:border-dark-strong"
-                            v-model.trim="item.qty"
-                          />
-                        </label>
-                      </div>
-                      <div class="form-control">
-                        <label class="input-group">
-                          <span
-                            class="w-36 bg-light-strong text-dark-medium dark:bg-dark-medium dark:text-light-medium"
-                            >Precio $</span
-                          >
-                          <!-- <UInput type="text" v-model.trim="item.price" /> -->
-                          <UInput
-                            icon="i-heroicons-magnifying-glass-20-solid"
-                            size="sm"
-                            color="white"
-                            :trailing="false"
-                            placeholder="Search..."
-                            v-model="item.price"
-                          />
-                        </label>
-                      </div>
+                      <UFormGroup label="Descripción">
+                        <UInput
+                          v-model.trim="item.itemDescription"
+                          placeholder="Escribe aquí"
+                        />
+                      </UFormGroup>
 
-                      <div class="card-actions w-full items-center">
-                        <button
-                          class="btn text-primary flex w-full gap-2 border-light-strong bg-white dark:border-dark-medium dark:bg-dark-strong"
+                      <UFormGroup label="Cantidad">
+                        <UInput type="number" v-model.trim="item.qty" />
+                      </UFormGroup>
+
+                      <UFormGroup label="Precio">
+                        <UInput
+                          icon="i-heroicons-currency-dollar"
+                          :trailing="false"
+                          type="number"
+                          v-model="item.price"
+                          :ui="{
+                            icon: { base: 'text-primary dark:text-primary' },
+                          }"
+                        />
+                      </UFormGroup>
+
+                      <div class="w-full items-center">
+                        <p
+                          class="text-primary flex w-full justify-end gap-2 border-light-strong bg-white dark:border-dark-medium dark:bg-dark-strong"
                         >
                           <span class="text-dark-medium dark:text-light-medium"
                             >Importe:
@@ -755,22 +743,27 @@ const company = reactive({
                               }).format((item.total = item.qty * item.price))
                             }}</span
                           >
-                        </button>
+                        </p>
                         <div
                           class="absolute -top-2 right-0"
                           v-if="invoiceObject.invoiceItems.length > 1"
                         >
-                          <Icon
+                          <UButton
+                            icon="i-heroicons-trash"
+                            @click="deleteInvoiceItem(item.itemId)"
+                            color="red"
+                          />
+                          <!-- <Icon
                             @click="deleteInvoiceItem(item.itemId)"
                             class="text-primary m-auto cursor-pointer"
                             title="Borrar artículo"
                             size="32"
-                            name="icon-park-outline:delete"
-                          />
+                            name="heroicons:trash"
+                          /> -->
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </UCard>
                 </TransitionGroup>
               </div>
             </div>
@@ -842,12 +835,13 @@ const company = reactive({
             </div>
           </section>
 
-          <div class="flex flex-col gap-2 lg:flex-row lg:justify-end">
+          <div class="flex justify-end gap-2 md:flex-col lg:flex-row">
             <UButton
               type="button"
               color="gray"
               variant="ghost"
               @click="discardInvoice"
+              class="w-fit"
             >
               <span>Cancelar</span>
             </UButton>
@@ -855,15 +849,13 @@ const company = reactive({
               icon="i-heroicons-document-text"
               type="submit"
               :loading="buttonLoading"
-            >
-              <span>{{
-                edit ? "Actualizar Cotización" : "Crear Cotización"
-              }}</span>
-            </UButton>
+              :label="submitButtonLabel"
+              class="w-fit"
+            />
           </div>
         </div>
       </div>
-    </form>
+    </UForm>
   </div>
 </template>
 

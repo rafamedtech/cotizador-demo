@@ -222,8 +222,8 @@ definePageMeta({
               />
               <h4 class="text-primary text-xl">No hay clientes</h4>
               <p class="mb-2 text-center text-sm md:w-1/2">
-                Crea una nueva cotización para que ver automáticamente los
-                clientes aquí.
+                Crea una nueva cotización para ver automáticamente los clientes
+                aquí.
               </p>
               <UButton
                 to="/cotizaciones/nueva-cotizacion"

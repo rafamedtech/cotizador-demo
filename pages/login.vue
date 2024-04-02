@@ -77,7 +77,7 @@ definePageMeta({
             <UFormGroup label="Email" name="email">
               <UInput
                 v-model="formData.email"
-                type="text"
+                type="email"
                 id="email"
                 placeholder="Ej. correo@ejemplo.com"
                 autocomplete="off"

@@ -1,6 +1,12 @@
 <template>
-  <section class="empty flex items-center flex-col text-dark-medium dark:text-light-strong">
-    <img src="@/assets/img/illustration-empty.svg" class="w-[214px] h-[300px]" alt="" />
+  <section
+    class="empty flex flex-col items-center text-dark-medium dark:text-light-strong"
+  >
+    <img
+      src="@/assets/img/illustration-empty.svg"
+      class="h-[300px] w-[214px]"
+      alt=""
+    />
     <h3>No hay cotizaciones</h3>
     <p>
       Crea una nueva cotización haciendo click en el botón
@@ -8,28 +14,3 @@
     </p>
   </section>
 </template>
-
-<!-- <style lang="scss" scoped>
-.empty {
-  margin-top: 60px;
-  align-items: center;
-
-  img {
-    width: 214px;
-    height: 200px;
-  }
-
-  h3 {
-    font-size: 20px;
-    margin-top: 40px;
-  }
-
-  p {
-    text-align: center;
-    max-width: 224px;
-    font-size: 12px;
-    font-weight: 300;
-    margin-top: 16px;
-  }
-}
-</style> -->

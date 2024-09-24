@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import type { InvoiceWithItems, SelectedStatus } from "@/types/invoice";
-// import { set } from "date-fns";
-// import { format } from "date-fns";
 
 const store = useStore();
 
@@ -12,7 +10,7 @@ const invoices = await useFetchWithCache<InvoiceWithItems[]>("/api/invoices");
 
 const filteredInvoices = computed(() => {
   if (selectedStatus.value.length === 0 && searchQuery.value === "") {
-    // return the invoices but using pagination depending on the page value
+    // return the invoices but using pagination depending on the page value ,.
     return invoices.value.slice(
       (page.value - 1) * pageCount.value,
       page.value * pageCount.value,
@@ -45,11 +43,8 @@ function refreshInvoices() {
 
     sessionStorage.clear();
 
-    // filteredInvoices.value = [];
-
     setTimeout(async () => {
       await getInvoices();
-      // searchInvoices();
 
       isLoading.value = false;
       loadInvoices.value = false;
@@ -104,7 +99,6 @@ const tableColumns = [
   },
 ];
 
-// const status = ["Todas", "Vendida", "Pendiente", "Cancelada", "Borrador"];
 const status = [
   {
     key: "Borrador",

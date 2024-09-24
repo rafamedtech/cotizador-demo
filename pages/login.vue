@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { FormError, FormSubmitEvent } from "#ui/types";
 const user = useSupabaseUser();
-// const { userLogin } = useAuthStore();
+
 const { userLogin } = useAuth();
 
 const store = useStore();

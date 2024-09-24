@@ -1,13 +1,13 @@
-import logo from '@/assets/img/logo-new.svg';
+import logo from "@/assets/img/logo-new.svg";
 
-type AppSettings = {
+interface AppSettings {
   logo: string;
   name: string;
   description: string;
-};
+}
 
 export const appInfo: AppSettings = {
   logo,
-  name: 'Cotizador',
-  description: 'Cotizador descripcion',
+  name: "Cotizador",
+  description: "Cotizador descripción",
 };

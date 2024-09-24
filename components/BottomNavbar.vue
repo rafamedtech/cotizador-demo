@@ -11,6 +11,6 @@ const { navLinks } = useNav();
       before: 'px-2',
     }"
     :links="navLinks"
-    class="fixed bottom-0 z-[49] border-t bg-white dark:border-none dark:bg-dark-strong"
+    class="fixed bottom-0 z-[49] border-t bg-white dark:border-none dark:bg-dark-strong print:hidden"
   />
 </template>

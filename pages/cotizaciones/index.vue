@@ -187,20 +187,22 @@ const dateOptions: Intl.DateTimeFormatOptions = {
               />
 
               <section class="flex justify-between gap-3">
-                <USelectMenu
-                  v-model="selectedStatus"
-                  :options="status"
-                  multiple
-                  placeholder="Etapa"
-                  class="w-full md:w-40"
-                >
-                  <template #label>
-                    <span v-if="selectedStatus.length" class="truncate">{{
-                      `${selectedStatus.length} seleccionada${selectedStatus.length > 1 ? "s" : ""}`
-                    }}</span>
-                    <span v-else>Etapa</span>
-                  </template>
-                </USelectMenu>
+                <ClientOnly>
+                  <USelectMenu
+                    v-model="selectedStatus"
+                    :options="status"
+                    multiple
+                    placeholder="Etapa"
+                    class="w-full md:w-40"
+                  >
+                    <template #label>
+                      <span v-if="selectedStatus.length" class="truncate">{{
+                        `${selectedStatus.length} seleccionada${selectedStatus.length > 1 ? "s" : ""}`
+                      }}</span>
+                      <span v-else>Etapa</span>
+                    </template>
+                  </USelectMenu>
+                </ClientOnly>
 
                 <UButton
                   icon="i-heroicons-funnel"
